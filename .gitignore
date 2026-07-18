@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local/editor files
+.DS_Store
+._*
+*.swp
+*.swo
+
+# Local state and generated plans
+.meta-sonata-state/
+meta-sonata-state/
+*.tmp
+
+# Do not accidentally commit media/library fixtures.
+*.flac
+*.mp3
+*.m4a
+*.mp4
+*.aac
+*.ogg
+*.opus
+*.wav
+*.aiff
+*.aif
+*.ape
+*.cue
+*.log
+*.jpg
+*.jpeg
+*.png
+*.webp
