@@ -6,10 +6,8 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-Clean up incomplete music metadata without risking incorrect bulk retagging.
-meta-sonata previews every change, preserves trusted local tags, fills verified
-gaps from multiple online sources, and skips uncertain matches - so automated
-pipelines can add accurate release data, covers, and synced lyrics with confidence.
+Automatically fetch and fill missing music metadata, cover art, and synced
+lyrics for your music folders. Preview the changes, then apply them with one command.
 
 ![meta-sonata read-only metadata browser](docs/assets/web-ui.png)
 
