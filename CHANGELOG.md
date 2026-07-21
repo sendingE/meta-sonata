@@ -2,6 +2,11 @@
 
 All notable changes to meta-sonata are documented here.
 
+## 0.1.2 - 2026-07-21
+
+- Fix images and documentation links in the PyPI project description.
+- Make the CLI demonstration independent of a specific patch version.
+
 ## 0.1.1 - 2026-07-21
 
 - Redesign the read-only metadata browser for desktop and mobile.

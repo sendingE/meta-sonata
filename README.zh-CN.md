@@ -3,9 +3,9 @@
 [![Tests](https://github.com/sendingE/meta-sonata/actions/workflows/tests.yml/badge.svg)](https://github.com/sendingE/meta-sonata/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/meta-sonata)](https://pypi.org/project/meta-sonata/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-3776AB)](https://www.python.org/)
-[![MIT License](https://img.shields.io/badge/license-MIT-2f6f73)](LICENSE)
+[![MIT License](https://img.shields.io/badge/license-MIT-2f6f73)](https://github.com/sendingE/meta-sonata/blob/main/LICENSE)
 
-[English](README.md) | **简体中文**
+[English](https://github.com/sendingE/meta-sonata) | **简体中文**
 
 自动抓取并补全音乐文件的元数据、封面和同步歌词。先预览改动，再用一个命令
 批量写入。
@@ -27,7 +27,7 @@ meta-sonata enrich "/音乐/待处理专辑" --write
 两个命令都可以处理单张专辑或更大的音乐目录。meta-sonata 优先相信已有标签、
 文件名和目录结构，再使用在线数据源补全缺失信息。
 
-![meta-sonata CLI 预演与写入流程](docs/assets/cli-demo.gif)
+![meta-sonata CLI 预演与写入流程](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/cli-demo.gif)
 
 ## 为什么用 meta-sonata？
 
@@ -101,7 +101,7 @@ meta-sonata web "/音乐" --host 127.0.0.1 --port 8765
 打开 `http://127.0.0.1:8765/`，可以浏览音频文件、核心标签、来源 ID、
 音频参数、封面和内嵌歌词。Web 界面只读，没有写入接口。
 
-![meta-sonata 只读 metadata 浏览器](docs/assets/web-ui.png)
+![meta-sonata 只读 metadata 浏览器](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/web-ui.png)
 
 _截图使用生成的静音 FLAC 演示文件及公版作品 metadata。_
 
@@ -115,10 +115,10 @@ _截图使用生成的静音 FLAC 演示文件及公版作品 metadata。_
 
 ## 更多文档
 
-- [完整使用手册（英文）](docs/guide.md)
-- [版本记录](CHANGELOG.md)
-- [公开测试素材规范](tests/README.md)
-- [MIT License](LICENSE)
+- [完整使用手册（英文）](https://github.com/sendingE/meta-sonata/blob/main/docs/guide.md)
+- [版本记录](https://github.com/sendingE/meta-sonata/blob/main/CHANGELOG.md)
+- [公开测试素材规范](https://github.com/sendingE/meta-sonata/blob/main/tests/README.md)
+- [MIT License](https://github.com/sendingE/meta-sonata/blob/main/LICENSE)
 
 支持 Python 3.9+。当前属于早期 `0.1.x` 版本，非官方数据接口可能发生变化
 或受到限流。

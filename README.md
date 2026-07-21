@@ -3,9 +3,9 @@
 [![Tests](https://github.com/sendingE/meta-sonata/actions/workflows/tests.yml/badge.svg)](https://github.com/sendingE/meta-sonata/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/meta-sonata)](https://pypi.org/project/meta-sonata/)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-3776AB)](https://www.python.org/)
-[![MIT License](https://img.shields.io/badge/license-MIT-2f6f73)](LICENSE)
+[![MIT License](https://img.shields.io/badge/license-MIT-2f6f73)](https://github.com/sendingE/meta-sonata/blob/main/LICENSE)
 
-**English** | [简体中文](README.zh-CN.md)
+**English** | [简体中文](https://github.com/sendingE/meta-sonata/blob/main/README.zh-CN.md)
 
 Automatically fetch and fill missing music metadata, cover art, and synced
 lyrics for your music folders. Preview the changes, then apply them with one command.
@@ -27,7 +27,7 @@ meta-sonata enrich "/music/album" --write
 Both commands accept an album folder or a larger music directory. Existing tags,
 filenames, and folder structure are trusted first; online sources fill the gaps.
 
-![meta-sonata CLI preview and write workflow](docs/assets/cli-demo.gif)
+![meta-sonata CLI preview and write workflow](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/cli-demo.gif)
 
 ## Why meta-sonata?
 
@@ -101,7 +101,7 @@ meta-sonata web "/music" --host 127.0.0.1 --port 8765
 Open `http://127.0.0.1:8765/` to browse audio files, core tags, source IDs,
 technical details, covers, and embedded lyrics. The web UI has no write endpoints.
 
-![meta-sonata read-only metadata browser](docs/assets/web-ui.png)
+![meta-sonata read-only metadata browser](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/web-ui.png)
 
 _Shown with generated silent FLAC demo files and public-domain work metadata._
 
@@ -115,10 +115,10 @@ _Shown with generated silent FLAC demo files and public-domain work metadata._
 
 ## More
 
-- [Detailed guide](docs/guide.md)
-- [Changelog](CHANGELOG.md)
-- [Public test-fixture policy](tests/README.md)
-- [MIT License](LICENSE)
+- [Detailed guide](https://github.com/sendingE/meta-sonata/blob/main/docs/guide.md)
+- [Changelog](https://github.com/sendingE/meta-sonata/blob/main/CHANGELOG.md)
+- [Public test-fixture policy](https://github.com/sendingE/meta-sonata/blob/main/tests/README.md)
+- [MIT License](https://github.com/sendingE/meta-sonata/blob/main/LICENSE)
 
 Python 3.9+ is supported. The project is currently an early `0.1.x` release;
 unofficial provider endpoints may change or be rate-limited.

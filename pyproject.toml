@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meta-sonata"
-version = "0.1.1"
+version = "0.1.2"
 description = "Automatically fetch and safely complete music metadata, cover art, and synced lyrics from the CLI."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -34,6 +34,8 @@ dependencies = [
 Homepage = "https://github.com/sendingE/meta-sonata"
 Repository = "https://github.com/sendingE/meta-sonata"
 Issues = "https://github.com/sendingE/meta-sonata/issues"
+Documentation = "https://github.com/sendingE/meta-sonata/blob/main/docs/guide.md"
+Changelog = "https://github.com/sendingE/meta-sonata/blob/main/CHANGELOG.md"
 
 [project.scripts]
 meta-sonata = "meta_sonata.cli:main"
