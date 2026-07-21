@@ -9,9 +9,22 @@
 Automatically fetch and fill missing music metadata, cover art, and synced
 lyrics for your music folders. Preview the changes, then apply them with one command.
 
-![meta-sonata read-only metadata browser](docs/assets/web-ui.png)
+## Two Commands
 
-_Shown with generated silent FLAC demo files and public-domain work metadata._
+Query and preview the metadata meta-sonata finds. Nothing is written:
+
+```bash
+meta-sonata enrich "/music/album"
+```
+
+Fetch and write metadata, cover art, and lyrics in one step:
+
+```bash
+meta-sonata enrich "/music/album" --write
+```
+
+Both commands accept an album folder or a larger music directory. Existing tags,
+filenames, and folder structure are trusted first; online sources fill the gaps.
 
 ## Why meta-sonata?
 
@@ -19,7 +32,6 @@ _Shown with generated silent FLAC demo files and public-domain work metadata._
 - **Conservative:** track count, duration, live/studio, and ambiguity checks prevent risky writes.
 - **Complete:** metadata, cover art, and synced lyrics in one command.
 - **Automation-ready:** dry runs, external incremental state, recursive discovery, and JSON audit plans.
-- **Reviewable:** inspect files and embedded tags in a local read-only web UI.
 
 ## Quick Start
 
@@ -27,12 +39,6 @@ _Shown with generated silent FLAC demo files and public-domain work metadata._
 git clone https://github.com/sendingE/meta-sonata.git
 cd meta-sonata
 python3 -m pip install -e .
-```
-
-Preview what would change:
-
-```bash
-meta-sonata enrich "/music/album"
 ```
 
 Typical output:
@@ -44,12 +50,6 @@ lyrics: 1/1 /music/album
 dry run: 1 plan(s)
 - album: Artist / Album: artist=Artist  album=Album  year=2006  tracks=12  confidence=0.96  lyrics=11/12
 nothing written; pass --write to apply
-```
-
-Apply the reviewed plan:
-
-```bash
-meta-sonata enrich "/music/album" --write
 ```
 
 `enrich` enables metadata lookup, cover lookup, and lyrics by default. It scans
@@ -85,7 +85,7 @@ meta-sonata enrich "/staging/new-music" \
 
 Incremental state stays outside music folders. No marker files are added to albums.
 
-## Inspect the Result
+## Optional Metadata Browser
 
 ```bash
 meta-sonata web "/music" --host 127.0.0.1 --port 8765
@@ -93,6 +93,10 @@ meta-sonata web "/music" --host 127.0.0.1 --port 8765
 
 Open `http://127.0.0.1:8765/` to browse audio files, core tags, source IDs,
 technical details, covers, and embedded lyrics. The web UI has no write endpoints.
+
+![meta-sonata read-only metadata browser](docs/assets/web-ui.png)
+
+_Shown with generated silent FLAC demo files and public-domain work metadata._
 
 ## Safety
 

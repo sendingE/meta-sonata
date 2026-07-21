@@ -9,9 +9,22 @@
 自动抓取并补全音乐文件的元数据、封面和同步歌词。先预览改动，再用一个命令
 批量写入。
 
-![meta-sonata 只读元数据浏览器](docs/assets/web-ui.png)
+## 两个命令
 
-_截图使用生成的静音 FLAC 演示文件及公版作品元数据。_
+一键查询并预览 meta-sonata 找到的 metadata，不会写入文件：
+
+```bash
+meta-sonata enrich "/音乐/待处理专辑"
+```
+
+一键抓取并写入 metadata、封面和歌词：
+
+```bash
+meta-sonata enrich "/音乐/待处理专辑" --write
+```
+
+两个命令都可以处理单张专辑或更大的音乐目录。meta-sonata 优先相信已有标签、
+文件名和目录结构，再使用在线数据源补全缺失信息。
 
 ## 为什么用 meta-sonata？
 
@@ -19,7 +32,6 @@ _截图使用生成的静音 FLAC 演示文件及公版作品元数据。_
 - **保守写入：** 检查曲目数、时长、现场/录音室冲突和候选歧义。
 - **一次补全：** 元数据、封面和同步歌词使用一个命令处理。
 - **适合自动化：** 支持预演、外部增量状态、递归发现和 JSON 审计计划。
-- **方便核验：** 使用本地只读 Web 界面检查文件及内嵌标签。
 
 ## 快速开始
 
@@ -27,12 +39,6 @@ _截图使用生成的静音 FLAC 演示文件及公版作品元数据。_
 git clone https://github.com/sendingE/meta-sonata.git
 cd meta-sonata
 python3 -m pip install -e .
-```
-
-先预演，不写文件：
-
-```bash
-meta-sonata enrich "/音乐/待处理专辑"
 ```
 
 典型输出：
@@ -44,12 +50,6 @@ lyrics: 1/1 /音乐/待处理专辑
 dry run: 1 plan(s)
 - album: 歌手 / 专辑: artist=歌手  album=专辑  year=2006  tracks=12  confidence=0.96  lyrics=11/12
 nothing written; pass --write to apply
-```
-
-确认后写入：
-
-```bash
-meta-sonata enrich "/音乐/待处理专辑" --write
 ```
 
 `enrich` 默认启用元数据、封面和歌词抓取，并向下发现三层目录。可以使用
@@ -85,7 +85,7 @@ meta-sonata enrich "/staging/new-music" \
 
 增量状态保存在音乐目录之外，不会在专辑中留下标记文件。
 
-## 检查处理结果
+## 可选的 metadata 浏览器
 
 ```bash
 meta-sonata web "/音乐" --host 127.0.0.1 --port 8765
@@ -93,6 +93,10 @@ meta-sonata web "/音乐" --host 127.0.0.1 --port 8765
 
 打开 `http://127.0.0.1:8765/`，可以浏览音频文件、核心标签、来源 ID、
 音频参数、封面和内嵌歌词。Web 界面只读，没有写入接口。
+
+![meta-sonata 只读 metadata 浏览器](docs/assets/web-ui.png)
+
+_截图使用生成的静音 FLAC 演示文件及公版作品 metadata。_
 
 ## 安全设计
 

@@ -31,22 +31,27 @@ HTML = """<!doctype html>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">m</div>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 44 44" focusable="false">
+            <path class="mark-top" d="M36 7H15a7.5 7.5 0 0 0 0 15h14"></path>
+            <path class="mark-bottom" d="M8 37h21a7.5 7.5 0 0 0 0-15H15"></path>
+          </svg>
+        </div>
         <div class="brand-copy">
-          <strong>meta-sonata</strong>
-          <span>Metadata inspector</span>
+          <strong><span>meta</span><b>-</b><span>sonata</span></strong>
+          <span>library inspector</span>
         </div>
       </div>
       <div class="topbar-context">
         <span id="root-label" class="root-path"></span>
-        <span class="status-pill"><span class="status-dot"></span>Read only</span>
+        <span class="status-pill"><span class="status-dot"></span>Local / read only</span>
       </div>
     </header>
     <main class="workspace">
       <aside class="sidebar" aria-label="Library tree">
         <div class="sidebar-heading">
           <div>
-            <div class="eyebrow">Collection</div>
+            <div class="eyebrow">Workspace</div>
             <h2>Library</h2>
           </div>
           <button id="refresh-tree" class="action-button" type="button">Refresh</button>
@@ -59,7 +64,12 @@ HTML = """<!doctype html>
       </aside>
       <section class="viewer" aria-live="polite">
         <div id="empty-state" class="empty-state">
-          <div class="empty-mark" aria-hidden="true">m</div>
+          <div class="empty-mark" aria-hidden="true">
+            <svg viewBox="0 0 44 44" focusable="false">
+              <path class="mark-top" d="M36 7H15a7.5 7.5 0 0 0 0 15h14"></path>
+              <path class="mark-bottom" d="M8 37h21a7.5 7.5 0 0 0 0-15H15"></path>
+            </svg>
+          </div>
           <h1>Select a track</h1>
           <p>Choose an audio file from the library to inspect its embedded metadata, artwork, and lyrics.</p>
         </div>
@@ -68,31 +78,40 @@ HTML = """<!doctype html>
             <div class="cover-frame">
               <img id="cover" alt="">
               <div id="cover-empty" class="cover-empty">
-                <span id="cover-letter" class="cover-letter">M</span>
-                <span>No artwork</span>
+                <div class="placeholder-disc" aria-hidden="true">
+                  <span class="placeholder-label"></span>
+                </div>
+                <span class="placeholder-caption">No artwork</span>
               </div>
             </div>
             <div class="track-title-block">
               <div id="track-path" class="path-line"></div>
+              <div class="track-kicker">Now inspecting</div>
               <h1 id="track-title"></h1>
               <div id="track-subtitle" class="subtitle"></div>
               <div id="track-badges" class="badges"></div>
+              <div class="quick-stats">
+                <div><span>Format</span><strong id="stat-format">-</strong></div>
+                <div><span>Duration</span><strong id="stat-duration">-</strong></div>
+                <div><span>Track</span><strong id="stat-track">-</strong></div>
+              </div>
             </div>
           </section>
-          <div class="section-heading">
-            <h2>Track details</h2>
-            <span id="tag-count"></span>
-          </div>
-          <section class="detail-grid">
-            <article class="panel">
+          <nav class="view-tabs" aria-label="Metadata views">
+            <button class="view-tab active" type="button" data-view="overview">Overview</button>
+            <button class="view-tab" type="button" data-view="raw">All tags <span id="tag-count"></span></button>
+          </nav>
+          <div id="overview-view" class="metadata-view">
+            <section class="detail-grid">
+            <article class="panel file-panel">
               <div class="panel-heading"><h3>File</h3><span>Technical</span></div>
               <dl id="file-info" class="kv"></dl>
             </article>
-            <article class="panel">
+            <article class="panel core-panel">
               <div class="panel-heading"><h3>Core metadata</h3><span>Embedded</span></div>
               <dl id="core-tags" class="kv"></dl>
             </article>
-            <article class="panel">
+            <article class="panel source-panel">
               <div class="panel-heading"><h3>Provenance</h3><span>Sources</span></div>
               <dl id="source-tags" class="kv"></dl>
             </article>
@@ -101,8 +120,9 @@ HTML = """<!doctype html>
               <dl id="lyrics-summary" class="kv lyrics-summary"></dl>
               <pre id="lyrics-preview" class="lyrics-preview"></pre>
             </article>
-          </section>
-          <section class="panel all-tags-panel">
+            </section>
+          </div>
+          <section id="raw-view" class="metadata-view hidden panel all-tags-panel">
             <div class="panel-heading"><h3>All tags</h3><span>Raw values</span></div>
             <div id="all-tags" class="tag-table"></div>
           </section>
@@ -119,20 +139,21 @@ HTML = """<!doctype html>
 CSS = """
 /* Refined application shell. Kept dependency-free for offline library use. */
 :root {
-  --bg: #f2f4f3;
+  --bg: #f4f4f2;
   --panel: #ffffff;
-  --sidebar: #f8f9f8;
-  --line: #dce2df;
-  --line-strong: #c9d1cd;
-  --text: #17201f;
-  --muted: #687370;
-  --faint: #8c9693;
-  --accent: #087f5b;
-  --accent-strong: #076348;
-  --accent-weak: #e2f3ec;
-  --warm: #b86b16;
-  --warm-weak: #fff2df;
-  --shadow: 0 1px 2px rgba(23, 32, 31, 0.05), 0 8px 24px rgba(23, 32, 31, 0.04);
+  --sidebar: #171817;
+  --line: #dedfdb;
+  --line-strong: #c9cac5;
+  --text: #171817;
+  --muted: #686b67;
+  --faint: #90938e;
+  --accent: #3457d5;
+  --accent-strong: #2644b8;
+  --accent-weak: #e7ebff;
+  --signal: #c9f16f;
+  --warm: #d34f32;
+  --warm-weak: #fff0eb;
+  --shadow: 0 1px 2px rgba(17, 18, 17, 0.06), 0 10px 32px rgba(17, 18, 17, 0.05);
 }
 
 * {
@@ -169,13 +190,13 @@ button:focus-visible {
 }
 
 .topbar {
-  min-height: 64px;
-  padding: 0 22px;
+  min-height: 66px;
+  padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #ffffff;
-  border-bottom: 1px solid var(--line);
+  background: #111211;
+  border-bottom: 1px solid #272927;
 }
 
 .brand {
@@ -185,21 +206,34 @@ button:focus-visible {
   gap: 11px;
 }
 
-.brand-mark,
-.empty-mark {
-  display: grid;
-  place-items: center;
-  background: #173f38;
-  color: #f6edd7;
-  font-family: Georgia, "Times New Roman", serif;
-  font-weight: 700;
+.brand-mark {
+  width: 37px;
+  height: 37px;
+  flex: 0 0 auto;
 }
 
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 7px;
-  font-size: 21px;
+.brand-mark svg,
+.empty-mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+.brand-mark path,
+.empty-mark path {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: square;
+  stroke-linejoin: round;
+}
+
+.mark-top {
+  stroke: var(--signal);
+}
+
+.mark-bottom {
+  stroke: #6f8bff;
 }
 
 .brand-copy {
@@ -209,12 +243,22 @@ button:focus-visible {
 }
 
 .brand-copy strong {
+  color: #ffffff;
   font-size: 15px;
   line-height: 1.25;
 }
 
-.brand-copy span {
-  color: var(--muted);
+.brand-copy strong span {
+  color: inherit;
+}
+
+.brand-copy strong b {
+  color: var(--signal);
+  font-weight: inherit;
+}
+
+.brand-copy > span {
+  color: #8f948f;
   font-size: 11px;
 }
 
@@ -228,7 +272,7 @@ button:focus-visible {
 
 .root-path {
   max-width: min(46vw, 680px);
-  color: var(--muted);
+  color: #9a9e99;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
   overflow: hidden;
@@ -241,11 +285,12 @@ button:focus-visible {
   align-items: center;
   gap: 7px;
   min-height: 28px;
-  border: 1px solid #b8d8ca;
-  border-radius: 999px;
-  background: #edf8f3;
-  color: var(--accent-strong);
-  padding: 4px 10px;
+  border: 1px solid var(--signal);
+  border-radius: 4px;
+  background: var(--signal);
+  color: #1a2412;
+  padding: 5px 9px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -253,13 +298,13 @@ button:focus-visible {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent);
+  background: #263719;
 }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-  min-height: calc(100vh - 65px);
+  grid-template-columns: minmax(286px, 316px) minmax(0, 1fr);
+  min-height: calc(100vh - 67px);
 }
 
 .sidebar {
@@ -267,7 +312,7 @@ button:focus-visible {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid #272927;
   background: var(--sidebar);
 }
 
@@ -277,12 +322,12 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid #2c2e2c;
 }
 
 .eyebrow {
   margin-bottom: 2px;
-  color: var(--faint);
+  color: #797e79;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -290,6 +335,7 @@ button:focus-visible {
 
 .sidebar-heading h2 {
   margin: 0;
+  color: #ffffff;
   font-size: 19px;
   line-height: 1.2;
 }
@@ -297,18 +343,18 @@ button:focus-visible {
 .action-button {
   min-height: 32px;
   padding: 5px 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  background: #ffffff;
-  color: #34413e;
+  border: 1px solid #414441;
+  border-radius: 4px;
+  background: #232523;
+  color: #eceeeb;
   font-size: 12px;
   font-weight: 650;
   box-shadow: 0 1px 1px rgba(23, 32, 31, 0.04);
 }
 
 .action-button:hover {
-  border-color: #aebbb5;
-  background: #f3f6f4;
+  border-color: #616561;
+  background: #2c2f2c;
 }
 
 .tree {
@@ -325,37 +371,30 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 6px 9px;
-  color: #34413e;
+  color: #b9bdb8;
   font-size: 13px;
   text-align: left;
 }
 
 .tree-row:hover {
-  background: #edf1ef;
+  background: #242624;
 }
 
 .tree-row.selected {
-  background: var(--accent-weak);
-  color: #075b43;
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 650;
 }
 
 .tree-row.selected::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--accent);
+  display: none;
 }
 
 .tree-row.root-row {
   font-weight: 700;
-  color: var(--text);
+  color: #ffffff;
 }
 
 .tree-icon {
@@ -374,8 +413,8 @@ button:focus-visible {
   height: 6px;
   left: 4px;
   top: 5px;
-  border-right: 1.5px solid #697572;
-  border-bottom: 1.5px solid #697572;
+  border-right: 1.5px solid #8d928d;
+  border-bottom: 1.5px solid #8d928d;
   transform: rotate(-45deg);
   transition: transform 120ms ease, top 120ms ease;
 }
@@ -388,7 +427,7 @@ button:focus-visible {
 .file-extension {
   width: 32px;
   flex: 0 0 32px;
-  color: #78827f;
+  color: #858a85;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 9px;
   font-weight: 700;
@@ -402,15 +441,24 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+.tree-row.selected .file-extension {
+  color: #dce3ff;
+}
+
+.tree-row.selected .tree-icon.directory::before {
+  border-color: #ffffff;
+}
+
 .tree-children {
   margin-left: 14px;
-  border-left: 1px solid #e2e7e4;
+  border-left: 1px solid #303330;
   padding-left: 2px;
 }
 
 .tree-note {
   padding: 10px;
   font-size: 12px;
+  color: #858a85;
 }
 
 .sidebar-footer {
@@ -419,19 +467,19 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid var(--line);
-  color: var(--faint);
+  border-top: 1px solid #2c2e2c;
+  color: #767b76;
   font-size: 11px;
 }
 
 .viewer {
   min-width: 0;
   overflow: auto;
-  padding: 28px clamp(20px, 3vw, 44px) 48px;
+  padding: 34px clamp(24px, 4vw, 58px) 56px;
 }
 
 .track-view {
-  width: min(1180px, 100%);
+  width: min(1220px, 100%);
   margin: 0 auto;
 }
 
@@ -444,11 +492,13 @@ button:focus-visible {
 }
 
 .empty-mark {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   margin: 0 auto 18px;
-  border-radius: 8px;
-  font-size: 30px;
+  padding: 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: #ffffff;
 }
 
 .empty-state h1 {
@@ -467,26 +517,26 @@ button:focus-visible {
 
 .track-hero {
   display: grid;
-  grid-template-columns: 176px minmax(0, 1fr);
-  gap: 26px;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 36px;
   align-items: center;
   margin: 0 0 24px;
-  padding: 2px 0 28px;
+  padding: 2px 0 34px;
   border-bottom: 1px solid var(--line);
 }
 
 .cover-frame {
-  width: 176px;
+  width: 210px;
   aspect-ratio: 1;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #213a36;
-  border: 1px solid #1d3430;
-  border-radius: 8px;
-  color: #e7dcc2;
-  box-shadow: 0 12px 28px rgba(23, 32, 31, 0.12);
+  background: #e7e8e3;
+  border: 1px solid #d2d4ce;
+  border-radius: 5px;
+  color: var(--text);
+  box-shadow: 14px 14px 0 #dfe1da;
 }
 
 .cover-frame img {
@@ -496,27 +546,58 @@ button:focus-visible {
 }
 
 .cover-empty {
+  position: relative;
   width: 100%;
   height: 100%;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  color: #b9c5c0;
-  font-size: 10px;
-  font-weight: 700;
+  padding: 17px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #eceee8;
+}
+
+.cover-empty::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0 50%, rgba(23, 24, 23, 0.045) 50% 50.8%, transparent 50.8%),
+    linear-gradient(0deg, transparent 0 50%, rgba(23, 24, 23, 0.045) 50% 50.8%, transparent 50.8%);
+}
+
+.placeholder-disc {
+  position: relative;
+  width: 74%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, #292b28 0 2px, #1d1f1d 3px 6px);
+  box-shadow: 0 16px 28px rgba(23, 24, 23, 0.18);
+}
+
+.placeholder-label {
+  width: 35%;
+  aspect-ratio: 1;
+  border: 7px solid var(--signal);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px #1d1f1d;
+}
+
+.placeholder-caption {
+  position: absolute;
+  right: 13px;
+  bottom: 10px;
+  color: #777b75;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
   text-transform: uppercase;
 }
 
-.cover-letter {
-  margin-top: 30px;
-  color: #f1e4c6;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 72px;
-  font-weight: 700;
-  line-height: 1;
-  text-transform: none;
+.placeholder-caption {
+  letter-spacing: 0;
 }
 
 .path-line {
@@ -527,17 +608,25 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.track-kicker {
+  margin: 0 0 7px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
 .track-title-block h1 {
   max-width: 850px;
   margin-bottom: 8px;
-  font-size: clamp(28px, 3vw, 42px);
+  font-size: clamp(34px, 4vw, 54px);
   line-height: 1.08;
   overflow-wrap: anywhere;
 }
 
 .subtitle {
-  color: #52605d;
-  font-size: 16px;
+  color: #555954;
+  font-size: 17px;
 }
 
 .badges {
@@ -553,52 +642,111 @@ button:focus-visible {
   align-items: center;
   border: 1px solid var(--line);
   background: var(--panel);
-  border-radius: 999px;
+  border-radius: 4px;
   padding: 3px 9px;
   font-size: 11px;
   font-weight: 650;
 }
 
 .badge.ok {
-  border-color: #b8d8ca;
-  color: var(--accent-strong);
-  background: #edf8f3;
+  border-color: #bdc8f6;
+  color: #2744b3;
+  background: #edf0ff;
 }
 
 .badge.warn {
-  border-color: #ebc892;
-  color: #8a4b0f;
+  border-color: #efb2a3;
+  color: #9f351f;
   background: var(--warm-weak);
 }
 
-.section-heading {
-  min-height: 38px;
+.quick-stats {
+  margin-top: 22px;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 22px;
 }
 
-.section-heading h2 {
-  margin: 0;
-  font-size: 15px;
+.quick-stats div {
+  min-width: 76px;
+  padding-left: 10px;
+  border-left: 2px solid var(--accent);
+  display: flex;
+  flex-direction: column;
 }
 
-.section-heading span {
+.quick-stats span {
   color: var(--faint);
-  font-size: 11px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.quick-stats strong {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+.view-tabs {
+  min-height: 46px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: flex-end;
+  gap: 22px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.view-tab {
+  position: relative;
+  min-height: 46px;
+  padding: 0;
+  color: #737772;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.view-tab:hover,
+.view-tab.active {
+  color: var(--text);
+}
+
+.view-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--accent);
+}
+
+.view-tab span {
+  margin-left: 4px;
+  color: var(--faint);
+  font-size: 10px;
 }
 
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.file-panel,
+.source-panel {
+  grid-column: span 5;
+}
+
+.core-panel,
+.lyrics-panel {
+  grid-column: span 7;
 }
 
 .panel {
-  padding: 18px;
+  padding: 20px;
   min-width: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 5px;
   background: var(--panel);
   box-shadow: var(--shadow);
 }
@@ -611,12 +759,12 @@ button:focus-visible {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid #edf0ee;
+  border-bottom: 1px solid #ecece8;
 }
 
 .panel-heading h3 {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.3;
 }
 
@@ -634,14 +782,14 @@ button:focus-visible {
 }
 
 .kv dt {
-  color: #74807d;
+  color: #747873;
   font-size: 12px;
   overflow-wrap: anywhere;
 }
 
 .kv dd {
   margin: 0;
-  color: #25302e;
+  color: #252725;
   font-size: 12px;
   font-weight: 550;
   overflow-wrap: anywhere;
@@ -664,8 +812,8 @@ button:focus-visible {
   max-height: 260px;
   overflow: auto;
   margin-top: 14px;
-  border-color: #e2e7e4;
-  background: #f7f9f8;
+  border-color: #dedfdb;
+  background: #f6f6f3;
   padding: 13px;
   color: #34413e;
   font-size: 11px;
@@ -732,7 +880,7 @@ button:focus-visible {
 }
 
 @media (max-width: 620px) {
-  .brand-copy span,
+  .brand-copy > span,
   .sidebar-footer {
     display: none;
   }
@@ -740,6 +888,13 @@ button:focus-visible {
   .track-hero,
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .file-panel,
+  .core-panel,
+  .source-panel,
+  .lyrics-panel {
+    grid-column: 1;
   }
 
   .track-hero {
@@ -751,9 +906,8 @@ button:focus-visible {
     width: 132px;
   }
 
-  .cover-letter {
-    margin-top: 18px;
-    font-size: 50px;
+  .placeholder-label {
+    border-width: 5px;
   }
 
   .track-title-block h1 {
@@ -947,9 +1101,13 @@ function renderTrack(detail) {
   const artist = firstTag(detail.tags, "artist") || firstTag(detail.tags, "albumartist");
   const album = firstTag(detail.tags, "album");
   el("track-subtitle").textContent = [artist, album].filter(Boolean).join(" - ");
-  el("cover-letter").textContent = (album || title || "M").trim().slice(0, 1).toUpperCase();
   const tagTotal = Object.keys(detail.tags || {}).length;
-  el("tag-count").textContent = `${tagTotal} embedded tag${tagTotal === 1 ? "" : "s"}`;
+  el("tag-count").textContent = tagTotal;
+  const format = String(detail.file.suffix || detail.format || "").replace(/^\./, "").toUpperCase();
+  el("stat-format").textContent = format || "-";
+  el("stat-duration").textContent = formatDuration(detail.audio?.length) || "-";
+  el("stat-track").textContent = firstTag(detail.tags, "tracknumber") || "-";
+  setMetadataView("overview");
 
   const cover = el("cover");
   const coverEmpty = el("cover-empty");
@@ -1094,6 +1252,15 @@ function renderAllTags(tags) {
   }
 }
 
+function setMetadataView(view) {
+  const raw = view === "raw";
+  el("overview-view").classList.toggle("hidden", raw);
+  el("raw-view").classList.toggle("hidden", !raw);
+  document.querySelectorAll(".view-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.view === view);
+  });
+}
+
 function summarizeTag(key, value) {
   const text = formatTagValue(value);
   if (/lyrics/i.test(key) && text.length > 180) {
@@ -1104,6 +1271,10 @@ function summarizeTag(key, value) {
 
 el("refresh-tree").addEventListener("click", () => {
   loadRoot().catch(showError);
+});
+
+document.querySelectorAll(".view-tab").forEach((tab) => {
+  tab.addEventListener("click", () => setMetadataView(tab.dataset.view));
 });
 
 function showError(error) {
