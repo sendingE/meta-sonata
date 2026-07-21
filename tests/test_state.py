@@ -28,9 +28,15 @@ class StateTest(unittest.TestCase):
         state_path_mock.assert_called_once_with("meta-sonata", appauthor=False)
 
     def test_custom_state_dir_takes_priority(self):
-        with patch.dict(os.environ, {STATE_DIR_ENV: "~/custom-meta-state"}, clear=True):
+        home = Path.home()
+        env = {
+            STATE_DIR_ENV: "~/custom-meta-state",
+            "HOME": str(home),
+            "USERPROFILE": str(home),
+        }
+        with patch.dict(os.environ, env, clear=True):
             with patch("meta_sonata.state.user_state_path") as state_path_mock:
-                self.assertEqual(default_state_dir(), Path.home() / "custom-meta-state")
+                self.assertEqual(default_state_dir(), home / "custom-meta-state")
         state_path_mock.assert_not_called()
 
     def test_enrich_defaults_to_scraping_and_lyrics(self):
