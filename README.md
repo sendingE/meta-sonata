@@ -6,9 +6,10 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-CLI-first music metadata enrichment for folders and sync pipelines. It trusts
-local filenames and tags first, uses online sources to fill gaps, and refuses
-uncertain release identities instead of confidently writing the wrong album.
+Clean up incomplete music metadata without risking incorrect bulk retagging.
+meta-sonata previews every change, preserves trusted local tags, fills verified
+gaps from multiple online sources, and skips uncertain matches - so automated
+pipelines can add accurate release data, covers, and synced lyrics with confidence.
 
 ![meta-sonata read-only metadata browser](docs/assets/web-ui.png)
 
