@@ -512,7 +512,7 @@ button:focus-visible {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .track-hero {

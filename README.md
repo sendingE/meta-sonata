@@ -103,7 +103,7 @@ technical details, covers, and embedded lyrics. The web UI has no write endpoint
 
 ![meta-sonata read-only metadata browser](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/web-ui.png)
 
-_Shown with generated silent FLAC demo files and public-domain work metadata._
+_Shown with CC-licensed audio and artwork from Nine Inch Nails' The Slip. See the [asset attribution](https://github.com/sendingE/meta-sonata/blob/main/docs/assets/ATTRIBUTION.md)._
 
 ## Safety
 

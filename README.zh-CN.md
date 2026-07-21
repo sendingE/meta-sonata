@@ -103,7 +103,7 @@ meta-sonata web "/音乐" --host 127.0.0.1 --port 8765
 
 ![meta-sonata 只读 metadata 浏览器](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/web-ui.png)
 
-_截图使用生成的静音 FLAC 演示文件及公版作品 metadata。_
+_截图使用 Nine Inch Nails《The Slip》的 CC 授权音频与封面，详见[素材署名](https://github.com/sendingE/meta-sonata/blob/main/docs/assets/ATTRIBUTION.md)。_
 
 ## 安全设计
 

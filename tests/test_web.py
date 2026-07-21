@@ -2,10 +2,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from meta_sonata.web import build_child_listing, safe_join
+from meta_sonata.web import CSS, build_child_listing, safe_join
 
 
 class WebTest(unittest.TestCase):
+    def test_hidden_utility_overrides_component_display(self):
+        self.assertIn(".hidden {\n  display: none !important;\n}", CSS)
+
     def test_safe_join_rejects_escape(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
