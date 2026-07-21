@@ -30,20 +30,26 @@ The project is designed for a conservative automation loop:
 
 ## Install
 
-Run from the repository:
+Install the CLI with `pipx`:
 
 ```bash
-PYTHONPATH=src python3 -m meta_sonata.cli doctor
+pipx install meta-sonata
 ```
 
-Or install in editable mode:
+Or use `uv`:
 
 ```bash
-python3 -m pip install -e .
+uv tool install meta-sonata
+```
+
+Then verify the environment:
+
+```bash
 meta-sonata doctor
 ```
 
-Python 3.9+ is required.
+Python 3.9+ is required. Contributors can install a repository checkout in
+editable mode with `python3 -m pip install -e .`.
 
 ## CLI
 

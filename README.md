@@ -26,6 +26,8 @@ meta-sonata enrich "/music/album" --write
 Both commands accept an album folder or a larger music directory. Existing tags,
 filenames, and folder structure are trusted first; online sources fill the gaps.
 
+![meta-sonata CLI preview and write workflow](docs/assets/cli-demo.gif)
+
 ## Why meta-sonata?
 
 - **Local first:** existing tags, folder names, and track structure anchor the match.
@@ -36,9 +38,13 @@ filenames, and folder structure are trusted first; online sources fill the gaps.
 ## Quick Start
 
 ```bash
-git clone https://github.com/sendingE/meta-sonata.git
-cd meta-sonata
-python3 -m pip install -e .
+pipx install meta-sonata
+```
+
+Or install it with `uv`:
+
+```bash
+uv tool install meta-sonata
 ```
 
 Typical output:
@@ -109,6 +115,7 @@ _Shown with generated silent FLAC demo files and public-domain work metadata._
 ## More
 
 - [Detailed guide](docs/guide.md)
+- [Changelog](CHANGELOG.md)
 - [Public test-fixture policy](tests/README.md)
 - [MIT License](LICENSE)
 

@@ -934,7 +934,7 @@ button:focus-visible {
 """
 
 
-JS = """
+JS = r"""
 const state = {
   root: null,
   selectedRel: null,

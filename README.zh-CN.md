@@ -26,6 +26,8 @@ meta-sonata enrich "/音乐/待处理专辑" --write
 两个命令都可以处理单张专辑或更大的音乐目录。meta-sonata 优先相信已有标签、
 文件名和目录结构，再使用在线数据源补全缺失信息。
 
+![meta-sonata CLI 预演与写入流程](docs/assets/cli-demo.gif)
+
 ## 为什么用 meta-sonata？
 
 - **本地优先：** 已有标签、目录名和曲目结构是匹配锚点。
@@ -36,9 +38,13 @@ meta-sonata enrich "/音乐/待处理专辑" --write
 ## 快速开始
 
 ```bash
-git clone https://github.com/sendingE/meta-sonata.git
-cd meta-sonata
-python3 -m pip install -e .
+pipx install meta-sonata
+```
+
+也可以使用 `uv` 安装：
+
+```bash
+uv tool install meta-sonata
 ```
 
 典型输出：
@@ -109,6 +115,7 @@ _截图使用生成的静音 FLAC 演示文件及公版作品 metadata。_
 ## 更多文档
 
 - [完整使用手册（英文）](docs/guide.md)
+- [版本记录](CHANGELOG.md)
 - [公开测试素材规范](tests/README.md)
 - [MIT License](LICENSE)
 
