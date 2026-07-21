@@ -45,3 +45,6 @@ meta-sonata-state/
 *.jpeg
 *.png
 *.webp
+
+# Documentation screenshots are intentionally versioned.
+!docs/assets/*.png

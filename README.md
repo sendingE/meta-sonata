@@ -1,339 +1,113 @@
 # meta-sonata
 
-`meta-sonata` is a music metadata automation toolkit for album libraries,
-staging folders, and sync pipelines. It is CLI-first, with a local read-only
-web browser for reviewing files and embedded metadata.
+[![Tests](https://github.com/sendingE/meta-sonata/actions/workflows/tests.yml/badge.svg)](https://github.com/sendingE/meta-sonata/actions/workflows/tests.yml)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-3776AB)](https://www.python.org/)
+[![MIT License](https://img.shields.io/badge/license-MIT-2f6f73)](LICENSE)
 
-The project is designed for a conservative automation loop:
+**English** | [简体中文](README.zh-CN.md)
 
-1. infer what it can from local folder names, file names, and existing tags;
-2. scrape online metadata only to confirm or fill missing fields;
-3. score candidates before writing;
-4. write only when `--write` is passed;
-5. keep incremental state outside music folders.
+CLI-first music metadata enrichment for folders and sync pipelines. It trusts
+local filenames and tags first, uses online sources to fill gaps, and refuses
+uncertain release identities instead of confidently writing the wrong album.
 
-## Features
+![meta-sonata read-only metadata browser](docs/assets/web-ui.png)
 
-- Scan album folders without writing files.
-- Build JSON audit plans before tagging.
-- Resolve album metadata from MusicBrainz, iTunes, and NetEase.
-- Prefer local inference over scraped data.
-- Penalize live/concert candidates when the local album does not look live.
-- Reject concrete release identity when track counts, durations, or otherwise
-  strong candidates conflict.
-- Embed local covers, or fetch remote album covers when no local cover exists.
-- Embed synced lyrics through music-tag-compatible sources.
-- Keep pipeline state in an external state directory.
-- Refuse writes inside configured protected library roots.
+_Shown with generated silent FLAC demo files and public-domain work metadata._
 
-## Install
+## Why meta-sonata?
 
-Run from the repository:
+- **Local first:** existing tags, folder names, and track structure anchor the match.
+- **Conservative:** track count, duration, live/studio, and ambiguity checks prevent risky writes.
+- **Complete:** metadata, cover art, and synced lyrics in one command.
+- **Automation-ready:** dry runs, external incremental state, recursive discovery, and JSON audit plans.
+- **Reviewable:** inspect files and embedded tags in a local read-only web UI.
+
+## Quick Start
 
 ```bash
-PYTHONPATH=src python3 -m meta_sonata.cli doctor
-```
-
-Or install in editable mode:
-
-```bash
+git clone https://github.com/sendingE/meta-sonata.git
+cd meta-sonata
 python3 -m pip install -e .
-meta-sonata doctor
 ```
 
-Python 3.9+ is required.
-
-## CLI
-
-Inspect the environment:
+Preview what would change:
 
 ```bash
-meta-sonata doctor
+meta-sonata enrich "/music/album"
 ```
 
-List album metadata and lyric providers:
+Typical output:
+
+```text
+scan: root=/music/album files=12 album_groups=1 loose_tracks=0 max_depth=3
+resolve: 1/1 /music/album
+lyrics: 1/1 /music/album
+dry run: 1 plan(s)
+- album: Artist / Album: artist=Artist  album=Album  year=2006  tracks=12  confidence=0.96  lyrics=11/12
+nothing written; pass --write to apply
+```
+
+Apply the reviewed plan:
+
+```bash
+meta-sonata enrich "/music/album" --write
+```
+
+`enrich` enables metadata lookup, cover lookup, and lyrics by default. It scans
+up to three directory levels; use `--max-depth N` or `--recursive` when needed.
+
+## What It Can Fill
+
+| Area | Fields |
+| --- | --- |
+| Identity | title, artist, album artist, album, track/disc number |
+| Release | date, label, catalog number, barcode, release type |
+| Sources | MusicBrainz release/track IDs and provenance tags |
+| Media | embedded cover art, synced LRC, plain lyrics |
+
+Album metadata sources: **MusicBrainz**, **iTunes**, and **NetEase**.
+
+Lyric sources: **QQ Music**, **NetEase**, **KuGou**, **KuWo**, and **Migu**.
 
 ```bash
 meta-sonata sources
 ```
 
-Scan albums without reading or writing tags:
+## Put It in a Pipeline
+
+Run it after download/extraction/CUE splitting and before the final library sync:
 
 ```bash
-meta-sonata scan /path/to/staging --json
-```
-
-Resolve online metadata candidates:
-
-```bash
-meta-sonata resolve /path/to/staging \
-  --sources musicbrainz,itunes,netease
-```
-
-Create an audit plan:
-
-```bash
-meta-sonata audit /path/to/staging \
-  --scrape \
-  --out /tmp/meta-sonata-plan.json
-```
-
-Enrich album metadata, cover art, and lyrics with one command:
-
-```bash
-meta-sonata enrich /path/to/album --write
-```
-
-Without `--write`, `enrich` performs a dry run. It enables album scraping and
-lyrics by default; use `--no-scrape` or `--no-lyrics` to disable either part.
-
-Album discovery searches up to three directory levels below the input by
-default. Recognized `CD1`/`CD2` directories are grouped into their parent.
-Audio files are then classified using embedded album identity and track/disc
-positions:
-
-- consistent album identity becomes an album group;
-- multiple albums in one directory become separate virtual album groups;
-- missing, generic, or structurally conflicting album identity becomes loose
-  tracks;
-- loose tracks use per-track tags and filename inference, and never inherit a
-  common album, cover, or album id from their parent directory.
-
-Hidden directories and directory symlinks are not followed.
-
-A dry run reports the classification before showing per-unit metadata plans:
-
-```text
-scan: root=/music files=2000 album_groups=126 loose_tracks=318 max_depth=3
-resolve: 1/127 /music/mixed
-loose: 127/127 /music/mixed
-dry run: 127 plan(s)
-```
-
-Control album discovery depth explicitly:
-
-```bash
-# Only PATH itself
-meta-sonata enrich /path/to/music --max-depth 0
-
-# PATH plus five levels
-meta-sonata enrich /path/to/music --max-depth 5
-
-# No depth limit
-meta-sonata enrich /path/to/music --recursive
-```
-
-Depth controls album discovery, not traversal inside a recognized `CD1`/`CD2`
-directory. Always review the dry-run output before using `--write` on an
-unstructured collection.
-
-Dry-run tagging:
-
-```bash
-meta-sonata tag /path/to/staging \
-  --scrape \
-  --lyrics
-```
-
-Write tags:
-
-```bash
-meta-sonata tag /path/to/staging \
-  --scrape \
-  --lyrics \
+meta-sonata enrich "/staging/new-music" \
+  --changed-only \
+  --state-dir "/var/lib/meta-sonata" \
   --write
 ```
 
-Run the read-only metadata browser:
+Incremental state stays outside music folders. No marker files are added to albums.
+
+## Inspect the Result
 
 ```bash
-meta-sonata web /path/to/staging
+meta-sonata web "/music" --host 127.0.0.1 --port 8765
 ```
 
-## Scraping
-
-Album metadata scraping is album-first. Local folder/file inference and existing
-tags are the anchor; remote providers fill missing or richer fields such as:
-
-- release date
-- label
-- catalog number
-- barcode
-- MusicBrainz release and track ids
-- track titles that could not be parsed locally
-- remote album cover when no local `Cover.jpg`, `Folder.jpg`, or `Front.jpg`
-  exists
-
-Implemented album metadata providers:
-
-- `musicbrainz`, with Cover Art Archive release/release-group covers
-- `itunes`, via the public iTunes Search API
-- `netease`, via NetEase web endpoints
-
-Planned album metadata providers aligned with music-tag (some are already
-available as lyric sources):
-
-- `qmusic`
-- `kugou`
-- `kuwo`
-- `migu`
-- `spotify`
-- `acoustid`
-- `ximalaya`
-- `smart_tag` aggregation behavior
-
-## Lyrics
-
-Lyrics are enabled by default with `enrich`; use `--no-lyrics` to disable them.
-The lower-level `tag` command keeps lyrics opt-in with `--lyrics` because lyric
-text has different copyright and source-license risks from factual release
-metadata.
-
-The lyric workflow follows music-tag's plugin model:
-
-1. search a platform song candidate;
-2. score it against the local track title, artist, and album;
-3. fetch lyrics by the selected platform song id;
-4. skip low-scoring candidates instead of writing risky matches.
-
-Implemented lyric sources:
-
-- `qmusic`
-- `netease`
-- `kugou`
-- `kuwo`
-- `migu`
-
-Default lyric settings:
-
-```bash
-meta-sonata tag /path/to/staging \
-  --scrape \
-  --lyrics \
-  --lyrics-source qmusic,netease,kugou,kuwo,migu \
-  --lyrics-mode prefer-synced
-```
-
-`prefer-synced` writes synced LRC text to both `lyrics` and `syncedlyrics` for
-player compatibility. `--lyrics-mode both` also writes plain text to
-`unsyncedlyrics`. Existing synced LRC text found only in `lyrics` is migrated to
-`syncedlyrics` without fetching it again. Other existing embedded lyrics are
-skipped unless `--lyrics-overwrite` is passed.
+Open `http://127.0.0.1:8765/` to browse audio files, core tags, source IDs,
+technical details, covers, and embedded lyrics. The web UI has no write endpoints.
 
 ## Safety
 
-No personal library paths are hard-coded. To protect a real library from
-accidental writes, set `META_SONATA_PROTECTED_PATHS` before running write
-commands:
+- Every write command is a dry run unless `--write` is present.
+- Low-confidence lyrics and ambiguous release identities are skipped.
+- Mixed loose tracks are not forced into a fake album.
+- Real libraries can be protected with `META_SONATA_PROTECTED_PATHS`.
+- Tests generate silent FLAC files; no copyrighted media is committed.
 
-```bash
-export META_SONATA_PROTECTED_PATHS="/path/to/real/library:/another/library"
-```
+## More
 
-Run experiments against copied fixtures or staging directories, not directly
-against a real library.
+- [Detailed guide](docs/guide.md)
+- [Public test-fixture policy](tests/README.md)
+- [MIT License](LICENSE)
 
-## Incremental State
-
-`meta-sonata` keeps incremental state outside music folders. By default it uses:
-
-1. `$META_SONATA_STATE_DIR`
-2. the platform's per-user state directory via `platformdirs`
-
-Typical defaults are `$XDG_STATE_HOME/meta-sonata` (or
-`~/.local/state/meta-sonata`) on Linux, `~/Library/Application Support/meta-sonata`
-on macOS, and `%LOCALAPPDATA%\meta-sonata` on Windows.
-
-Pipeline example:
-
-```bash
-meta-sonata enrich /path/to/staging \
-  --changed-only \
-  --state-dir /path/to/meta-sonata-state \
-  --write
-```
-
-For pipelines that create a marker file after upstream processing, use:
-
-```bash
-meta-sonata enrich /path/to/staging \
-  --changed-only \
-  --state-dir /path/to/meta-sonata-state \
-  --pipeline-marker-since 1780000000 \
-  --write
-```
-
-## Automation
-
-A typical sync pipeline should run `meta-sonata` after download/extraction/CUE
-splitting and before copying files to the final library:
-
-```bash
-meta-sonata tag /path/to/staging \
-  --scrape \
-  --lyrics \
-  --changed-only \
-  --state-dir /path/to/meta-sonata-state \
-  --write
-```
-
-Useful environment toggles for wrapper scripts:
-
-- `META_SONATA_ENABLED=0` to skip metadata enrichment.
-- `META_SONATA_LYRICS_ENABLED=0` to skip lyric embedding.
-- `META_SONATA_SOURCES=musicbrainz,itunes,netease` to choose album metadata
-  providers.
-- `META_SONATA_LYRICS_SOURCES=qmusic,netease,kugou,kuwo,migu` to choose lyric
-  providers.
-- `META_SONATA_LYRICS_MODE=prefer-synced` to choose embedded lyric tags.
-- `META_SONATA_STATE_DIR=/path/to/state` to keep incremental state outside
-  music folders.
-
-## Web UI
-
-The first web UI is a local, read-only metadata browser. It is meant for
-checking the result of automation, not replacing the CLI workflow.
-
-```bash
-meta-sonata web /path/to/staging --host 127.0.0.1 --port 8765
-```
-
-Open `http://127.0.0.1:8765/` and browse the file tree. Selecting an audio file
-shows:
-
-- file size, modified time, duration, bitrate, sample rate, and channels;
-- core tags such as title, artist, album, track number, and date;
-- source tags such as MusicBrainz ids, lyric source, and lyric score;
-- embedded or local cover art;
-- lyric presence, synced/plain status, and a preview;
-- all readable tags from the audio container.
-
-The web UI has no write endpoints in this MVP.
-
-## Tests
-
-GitHub Actions runs the complete suite on Linux with Python 3.9 and 3.13, plus
-macOS and Windows with Python 3.13. CLI integration tests generate temporary
-silent FLAC files with FFmpeg and mock remote responses, so the suite does not
-depend on copyrighted fixtures or live metadata services.
-
-Run:
-
-```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -v
-```
-
-Tests are designed for a public repository:
-
-- no third-party audio, cover art, cue sheets, or scans are committed;
-- integration-style tests generate temporary audio only when needed;
-- metadata examples use public-domain work titles and composer names.
-
-See [tests/README.md](tests/README.md) for the fixture policy.
-
-## Current Limits
-
-- Audio fingerprinting is not implemented yet.
-- Some providers use unofficial web endpoints and can be rate-limited or change.
-- Lyrics are written only when a candidate clears the scorer threshold.
-- The web UI is read-only; enrichment and automation remain CLI workflows.
+Python 3.9+ is supported. The project is currently an early `0.1.x` release;
+unofficial provider endpoints may change or be rate-limited.
