@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from meta_sonata.catalog import CatalogDatabase
@@ -39,7 +40,7 @@ class CatalogTest(unittest.TestCase):
             self.catalog.stats(),
             {"libraries": 1, "files": 1, "entities": 3, "decisions": 0},
         )
-        with sqlite3.connect(self.catalog.path) as connection:
+        with closing(sqlite3.connect(self.catalog.path)) as connection:
             relative = connection.execute("SELECT relative_path FROM files").fetchone()[0]
             external = {
                 row[0]
@@ -70,14 +71,14 @@ class CatalogTest(unittest.TestCase):
         path.write_bytes(b"one")
         self.catalog.sync_library(self.library)
 
-        with sqlite3.connect(self.catalog.path) as connection:
+        with closing(sqlite3.connect(self.catalog.path)) as connection:
             before = connection.execute(
                 "SELECT last_seen_token FROM files WHERE relative_path = 'one.mp3'"
             ).fetchone()[0]
 
         self.catalog.index_audio_file(self.library, path)
 
-        with sqlite3.connect(self.catalog.path) as connection:
+        with closing(sqlite3.connect(self.catalog.path)) as connection:
             after = connection.execute(
                 "SELECT last_seen_token FROM files WHERE relative_path = 'one.mp3'"
             ).fetchone()[0]
