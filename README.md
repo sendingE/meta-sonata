@@ -8,56 +8,34 @@
 
 **English** | [简体中文](https://github.com/sendingE/meta-sonata/blob/main/README.zh-CN.md)
 
-Meta Sonata is a local-first music metadata workspace. It completes tags,
-artwork, and synced lyrics through a standalone macOS app or an automation-ready
-CLI, while keeping the original music and long-term identity data under your
-control.
+Meta Sonata turns incomplete music files into a clean, consistent library. Use
+the standalone macOS app for everyday organizing, or the CLI for batch work and
+automation.
 
-## Two Core Advantages
+## macOS App
 
-### A Real Standalone macOS App
-
-Drop in one track, inspect the proposed metadata, then drag the enriched copy
-back to Finder. The source file is never modified. The same app can open a local
-music folder as a read-only library for browsing tags, artwork, technical
-details, source IDs, and full lyrics.
-
-The app is self-contained: no Python, terminal, or separate web service is
-required. It supports English, Simplified Chinese, Traditional Chinese,
-Japanese, Korean, French, German, Spanish, and Brazilian Portuguese.
-
-### A Local Data Model, Not a Pile of Sidecar Files
-
-Meta Sonata separates data by lifecycle instead of forcing everything into the
-audio file or one opaque database:
-
-| Layer | What it owns | Lifecycle |
-| --- | --- | --- |
-| Audio file | Portable tags, MusicBrainz IDs, artwork, and lyrics | Travels with the music |
-| Local catalog | Library roots, relative file paths, entities, external IDs, aliases, and decisions | Durable per-user data; rebuildable from files |
-| Provider cache | Responses from MusicBrainz and other services | Disposable; safe to delete |
-
-This gives the app a durable foundation for larger libraries and future
-confirmation workflows without making the database the only copy of your music
-identity. If the catalog or a third-party service fails, local browsing and file
-processing continue.
-
-## Get the macOS App
+Drop in a track, review what Meta Sonata found, then drag the completed copy
+back to Finder. No Python, terminal, or separate service is required.
 
 [Download the latest Apple-silicon DMG](https://github.com/sendingE/meta-sonata/releases/latest).
 
+![Meta Sonata macOS app completing a music file](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/macos-app-demo.gif)
+
+_[Demo media attribution](https://github.com/sendingE/meta-sonata/blob/main/docs/assets/ATTRIBUTION.md)_
+
+### What You Get
+
+- **Complete music files:** fill missing album details, dates, artwork, and synced lyrics in one pass.
+- **A consistent library:** Meta Sonata recognizes the same song across singles, albums, and compilations while preserving each release's own details.
+- **A safe original:** the app creates a new completed copy and never changes the source file.
+- **One place to browse:** open a music folder to view its tags, artwork, audio details, and lyrics.
+- **Work that keeps moving:** if one online source is unavailable, Meta Sonata continues with the information and sources it can use.
+
+The app supports English, Simplified Chinese, Traditional Chinese, Japanese,
+Korean, French, German, Spanish, and Brazilian Portuguese.
+
 The current DMG is ad-hoc signed and not Apple-notarized, so macOS may require
-Control-click → **Open** on first launch. The app follows the copy-only rule:
-enrichment output is a separate file and the original remains untouched.
-
-Build the `.app` and `.dmg` locally with:
-
-```bash
-./scripts/build_macos_release.sh
-```
-
-For notarized distribution, set `MACOS_SIGN_IDENTITY` to a Developer ID identity
-and complete Apple's notarization flow.
+Control-click → **Open** on first launch.
 
 ## CLI Quick Start
 
@@ -88,16 +66,7 @@ filenames, and folder structure are trusted first; online sources fill the gaps.
 
 ![meta-sonata CLI preview and write workflow](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/cli-demo.gif)
 
-## Why Meta Sonata?
-
-- **Local first:** existing tags, folder names, and track structure anchor the match.
-- **Source-safe:** the macOS app enriches a copy; CLI writes require an explicit flag.
-- **Conservative:** track count, duration, live/studio, and ambiguity checks prevent risky writes.
-- **Complete:** metadata, cover art, and synced lyrics in one command.
-- **Resilient:** provider failures become warnings while local work and other sources continue.
-- **Automation-ready:** dry runs, external incremental state, recursive discovery, and JSON audit plans.
-
-Typical output:
+Preview before writing:
 
 ```text
 scan: root=/music/album files=12 album_groups=1 loose_tracks=0 max_depth=3
@@ -117,7 +86,6 @@ up to three directory levels; use `--max-depth N` or `--recursive` when needed.
 | --- | --- |
 | Identity | title, artist, album artist, album, track/disc number |
 | Release | date, label, catalog number, barcode, release type |
-| Sources | MusicBrainz artist, recording, release, release-group, and release-track IDs; provenance tags |
 | Media | embedded cover art, synced LRC, plain lyrics |
 
 Album metadata sources: **MusicBrainz**, **iTunes**, and **NetEase**.
@@ -153,22 +121,6 @@ technical details, covers, and embedded lyrics. The web UI has no write endpoint
 ![meta-sonata read-only metadata browser](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/web-ui.png)
 
 _Shown with CC-licensed audio and artwork from Nine Inch Nails' The Slip. See the [asset attribution](https://github.com/sendingE/meta-sonata/blob/main/docs/assets/ATTRIBUTION.md)._
-
-## Storage and Failure Behavior
-
-Embedded file tags remain the portable source of truth. The macOS app builds a
-rebuildable local catalog in the background for cross-folder lookup, match
-history, and future confirmation workflows. Third-party responses live in a
-separate disposable cache:
-
-- Durable catalog: `~/Library/Application Support/com.sendinge.meta-sonata/catalog.sqlite3`
-- API cache: `~/Library/Caches/com.sendinge.meta-sonata/provider-cache.sqlite3`
-
-Deleting the API cache does not affect music or catalog data. Catalog failures
-also never block browsing or enrichment. Real MusicBrainz network requests are
-limited to one per second across CLI, macOS, and test code paths. Every
-third-party failure degrades to a warning while local processing and other
-providers continue.
 
 ## Safety
 

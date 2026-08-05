@@ -8,50 +8,33 @@
 
 [English](https://github.com/sendingE/meta-sonata) | **简体中文**
 
-Meta Sonata 是一个本地优先的音乐元数据工作台。它既有可直接使用的独立 macOS
-App，也有适合批处理和自动化的 CLI；补全标签、封面和同步歌词的同时，原始音乐和
-长期身份数据始终由你掌控。
+Meta Sonata 帮你把信息残缺的音乐文件整理成完整、统一的音乐库。日常整理直接使用
+独立 macOS App；批量处理和自动化则使用 CLI。
 
-## 两个核心优势
+## macOS App
 
-### 真正独立的 macOS App
-
-拖入一首歌，检查补全结果，再把处理后的副本拖回 Finder。原文件始终不变。同一个
-App 还可以打开本地音乐文件夹，以只读方式浏览标签、封面、音频参数、来源 ID 和
-完整歌词。
-
-应用自带完整后端，不要求用户安装 Python、打开终端或另外启动 Web 服务。当前支持
-英语、简体中文、繁体中文、日语、韩语、法语、德语、西班牙语和巴西葡萄牙语。
-
-### 不是一堆旁路文件，而是分层的本地数据结构
-
-Meta Sonata 不会把所有信息都硬塞进音乐文件，也不会让一个数据库成为唯一真相。
-不同生命周期的数据分开保存：
-
-| 层级 | 保存什么 | 生命周期 |
-| --- | --- | --- |
-| 音乐文件 | 可携带标签、MusicBrainz ID、封面和歌词 | 跟随音乐移动 |
-| 本地目录库 | 音乐库根目录、相对路径、实体、外部 ID、别名和确认记录 | 用户级长期数据；可从文件重建 |
-| 第三方缓存 | MusicBrainz 等服务的响应 | 可随时删除 |
-
-这套结构既能支撑更大的音乐库和后续人工确认，又不会把用户锁死在数据库中。目录库
-损坏、缓存被删除或第三方接口失败时，本地浏览和文件处理仍能继续。
-
-## 获取 macOS App
+拖入一首歌，确认 Meta Sonata 找到的内容，再把补全后的副本拖回 Finder。无需安装
+Python，不用打开终端，也不用另外启动服务。
 
 [下载最新版 Apple 芯片 DMG](https://github.com/sendingE/meta-sonata/releases/latest)。
 
+![Meta Sonata macOS App 补全音乐文件](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/macos-app-demo.zh-CN.gif)
+
+_[演示素材署名](https://github.com/sendingE/meta-sonata/blob/main/docs/assets/ATTRIBUTION.md)_
+
+### 你能得到什么
+
+- **一次补齐信息：** 自动补上专辑、日期、封面和同步歌词。
+- **更统一的音乐库：** 同一首歌出现在单曲、专辑或精选集时，会被关联在一起，同时保留各自的发行信息。
+- **原文件始终安全：** App 只生成补全后的新副本，不会修改原文件。
+- **集中浏览音乐：** 打开本地文件夹即可查看标签、封面、音频参数和歌词。
+- **不中断整理流程：** 某个在线来源暂时不可用时，仍会使用已有信息和其他可用来源继续处理。
+
+当前支持英语、简体中文、繁体中文、日语、韩语、法语、德语、西班牙语和巴西
+葡萄牙语。
+
 当前 DMG 使用 ad-hoc 签名，尚未经过 Apple 公证；首次启动时可能需要按住 Control
-点击应用并选择“打开”。应用严格遵循副本补全：输出是新文件，原文件保持不变。
-
-也可以在本地构建 `.app` 和 `.dmg`：
-
-```bash
-./scripts/build_macos_release.sh
-```
-
-需要公证分发时，通过 `MACOS_SIGN_IDENTITY` 指定 Developer ID，并继续完成 Apple
-公证流程。
+点击应用并选择“打开”。
 
 ## CLI 快速开始
 
@@ -82,16 +65,7 @@ meta-sonata enrich "/音乐/待处理专辑" --write
 
 ![meta-sonata CLI 预演与写入流程](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/cli-demo.gif)
 
-## 为什么用 Meta Sonata？
-
-- **本地优先：** 已有标签、目录名和曲目结构是匹配锚点。
-- **保护原文件：** macOS App 只补全副本；CLI 必须显式允许才会写入。
-- **保守写入：** 检查曲目数、时长、现场/录音室冲突和候选歧义。
-- **一次补全：** 元数据、封面和同步歌词使用一个命令处理。
-- **失败可降级：** 单个数据源失败只产生警告，本地处理和其他来源继续工作。
-- **适合自动化：** 支持预演、外部增量状态、递归发现和 JSON 审计计划。
-
-典型输出：
+写入前可以先预览：
 
 ```text
 scan: root=/音乐/待处理专辑 files=12 album_groups=1 loose_tracks=0 max_depth=3
@@ -111,7 +85,6 @@ nothing written; pass --write to apply
 | --- | --- |
 | 歌曲身份 | 标题、歌手、专辑歌手、专辑、曲目号、碟号 |
 | 发行信息 | 日期、厂牌、目录编号、条码、发行类型 |
-| 来源信息 | MusicBrainz 艺术家、录音、发行版、发行组和发行曲目 ID；数据来源标签 |
 | 媒体内容 | 内嵌封面、同步 LRC、普通歌词 |
 
 专辑元数据来源：**MusicBrainz**、**iTunes**、**网易云音乐**。
@@ -147,19 +120,6 @@ meta-sonata web "/音乐" --host 127.0.0.1 --port 8765
 ![meta-sonata 只读 metadata 浏览器](https://raw.githubusercontent.com/sendingE/meta-sonata/main/docs/assets/web-ui.png)
 
 _截图使用 Nine Inch Nails《The Slip》的 CC 授权音频与封面，详见[素材署名](https://github.com/sendingE/meta-sonata/blob/main/docs/assets/ATTRIBUTION.md)。_
-
-## 存储位置与故障降级
-
-音乐文件中的标签仍是可携带的主数据。图形版会在后台建立一个可重建的本机目录，
-用于跨文件夹检索、记录匹配结果和以后扩展人工确认；第三方接口响应则放在独立的
-可丢弃缓存中：
-
-- 长期目录：`~/Library/Application Support/com.sendinge.meta-sonata/catalog.sqlite3`
-- API 缓存：`~/Library/Caches/com.sendinge.meta-sonata/provider-cache.sqlite3`
-
-删除 API 缓存不会影响音乐或目录数据；目录损坏或不可写也不会阻塞文件浏览和补全。
-MusicBrainz 的真实网络请求在命令行、图形版和测试路径中统一限制为每秒最多一次。
-所有第三方接口失败都会降级为警告并继续处理本地文件或其他数据源。
 
 ## 安全设计
 
