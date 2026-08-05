@@ -7,10 +7,11 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
 from dataclasses import dataclass
 from email.message import Message
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from . import __version__
 from .app_paths import default_api_cache_path
@@ -80,13 +81,22 @@ class ResponseCache:
         connection.execute("PRAGMA busy_timeout = 2000")
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def _initialize(self) -> None:
         if self._initialized:
             return
         with self._lock:
             if self._initialized:
                 return
-            with self._connect() as connection:
+            with self._connection() as connection:
                 connection.execute(
                     """
                     CREATE TABLE IF NOT EXISTS responses (
@@ -104,7 +114,7 @@ class ResponseCache:
     def get(self, cache_key: str, *, allow_expired: bool = False) -> CachedResponse | None:
         try:
             self._initialize()
-            with self._connect() as connection:
+            with self._connection() as connection:
                 row = connection.execute(
                     "SELECT body, content_type, expires_at FROM responses WHERE cache_key = ?",
                     (cache_key,),
@@ -130,7 +140,7 @@ class ResponseCache:
         try:
             self._initialize()
             now = time.time()
-            with self._connect() as connection:
+            with self._connection() as connection:
                 connection.execute(
                     """
                     INSERT INTO responses(cache_key, url, body, content_type, fetched_at, expires_at)
@@ -150,7 +160,7 @@ class ResponseCache:
     def delete(self, cache_key: str) -> None:
         try:
             self._initialize()
-            with self._connect() as connection:
+            with self._connection() as connection:
                 connection.execute("DELETE FROM responses WHERE cache_key = ?", (cache_key,))
         except (OSError, sqlite3.Error):
             return

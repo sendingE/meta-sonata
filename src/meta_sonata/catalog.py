@@ -5,9 +5,10 @@ import os
 import sqlite3
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from mutagen import File as MutagenFile
 
@@ -76,13 +77,22 @@ class CatalogDatabase:
         connection.execute("PRAGMA busy_timeout = 5000")
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def initialize(self) -> None:
         if self._initialized:
             return
         with self._initialize_lock:
             if self._initialized:
                 return
-            with self._connect() as connection:
+            with self._connection() as connection:
                 connection.executescript(
                     """
                     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -180,7 +190,7 @@ class CatalogDatabase:
         if not root.is_dir():
             raise NotADirectoryError(root)
         root_id = uuid.uuid5(uuid.NAMESPACE_URL, f"meta-sonata:{root}").hex
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO library_roots(id, path, display_name, volume_id, created_at)
@@ -300,7 +310,7 @@ class CatalogDatabase:
             raise ValueError(f"not an audio file: {path}")
         library_id = self.register_library(root)
         stat = path.stat()
-        with self._connect() as connection:
+        with self._connection() as connection:
             existing = connection.execute(
                 """
                 SELECT id, size, mtime_ns FROM files
@@ -382,7 +392,7 @@ class CatalogDatabase:
                 except (OSError, ValueError, sqlite3.Error):
                     skipped += 1
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             removed = 0
             if traversal_errors == 0:
                 cursor = connection.execute(
@@ -419,7 +429,7 @@ class CatalogDatabase:
         if status not in {"suggested", "confirmed", "rejected"}:
             raise ValueError(f"unsupported match status: {status}")
         file_id = self.index_audio_file(root, path)
-        with self._connect() as connection:
+        with self._connection() as connection:
             entity_id = self._entity_for_external_id(
                 connection,
                 provider=provider,
@@ -459,7 +469,7 @@ class CatalogDatabase:
         if decision not in {"accepted", "rejected"}:
             raise ValueError(f"unsupported decision: {decision}")
         file_id = self.index_audio_file(root, path)
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO decisions(
@@ -481,7 +491,7 @@ class CatalogDatabase:
 
     def stats(self) -> dict[str, int]:
         self.initialize()
-        with self._connect() as connection:
+        with self._connection() as connection:
             return {
                 "libraries": int(connection.execute("SELECT COUNT(*) FROM library_roots").fetchone()[0]),
                 "files": int(connection.execute("SELECT COUNT(*) FROM files").fetchone()[0]),
