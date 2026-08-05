@@ -96,9 +96,14 @@ class PlannerTest(unittest.TestCase):
                         tracknumber="1",
                         discnumber="1",
                         source_id="mb-track",
+                        recording_id="mb-recording",
+                        track_id="mb-release-track",
+                        artist_ids=["mb-artist"],
                     )
                 ],
                 score=0.90,
+                artist_ids=["mb-album-artist"],
+                release_group_id="mb-release-group",
             )
             plan = build_album_plan(scan, scraped=scraped)
             tags = plan.tracks[0].tags
@@ -108,7 +113,11 @@ class PlannerTest(unittest.TestCase):
             self.assertEqual(tags["label"], "Public Domain Archive")
             self.assertEqual(tags["catalognumber"], "SAMPLE-1")
             self.assertEqual(tags["musicbrainz_albumid"], "mb-release")
-            self.assertEqual(tags["musicbrainz_trackid"], "mb-track")
+            self.assertEqual(tags["musicbrainz_releasegroupid"], "mb-release-group")
+            self.assertEqual(tags["musicbrainz_albumartistid"], "mb-album-artist")
+            self.assertEqual(tags["musicbrainz_recordingid"], "mb-recording")
+            self.assertEqual(tags["musicbrainz_trackid"], "mb-release-track")
+            self.assertEqual(tags["musicbrainz_artistid"], "mb-artist")
             self.assertEqual(tags["discnumber"], "1")
             self.assertEqual(plan.remote_cover_url, "https://example.test/cover.jpg")
 

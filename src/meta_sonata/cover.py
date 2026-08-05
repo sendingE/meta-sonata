@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import mimetypes
-import urllib.request
 from pathlib import Path
 
-from .providers import USER_AGENT
+from .network import USER_AGENT, fetch_bytes
 
 
 def extension_from_content_type(content_type: str | None, fallback: str = ".jpg") -> str:
@@ -16,10 +15,9 @@ def extension_from_content_type(content_type: str | None, fallback: str = ".jpg"
 
 def download_cover(url: str, target_dir: Path, *, timeout: int = 20) -> Path:
     target_dir.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as res:
-        data = res.read()
-        ext = extension_from_content_type(res.headers.get("Content-Type"))
+    response = fetch_bytes(url, headers={"User-Agent": USER_AGENT}, timeout=timeout)
+    data = response.body
+    ext = extension_from_content_type(response.content_type)
     out = target_dir / f"remote-cover{ext}"
     out.write_bytes(data)
     return out

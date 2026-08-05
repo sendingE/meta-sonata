@@ -9,6 +9,7 @@ __pycache__/
 # Packaging
 build/
 dist/
+.build/
 *.egg-info/
 
 # Virtual environments
@@ -48,3 +49,7 @@ meta-sonata-state/
 
 # Documentation screenshots are intentionally versioned.
 !docs/assets/*.png
+
+# Local marketing workspaces and rendered drafts are not release sources.
+/promo-assets-v2/
+/promo-assets-v3/

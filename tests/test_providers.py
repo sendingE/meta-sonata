@@ -26,6 +26,31 @@ class AliasOnlyProvider(AlbumProvider):
 
 
 class ProvidersTest(unittest.TestCase):
+    def test_failed_provider_does_not_block_later_providers(self):
+        class FailingProvider(AlbumProvider):
+            name = "offline"
+
+            def search(self, local, *, limit=5):
+                del local, limit
+                raise TimeoutError("offline")
+
+        successful = AliasOnlyProvider()
+        local = AlbumMetadata(
+            artist="巴赫",
+            album="哥德堡變奏曲",
+            year="1741",
+        )
+
+        candidates, warnings = scrape_candidates(
+            local,
+            providers=[FailingProvider(), successful],
+            limit_per_source=5,
+        )
+
+        self.assertEqual(candidates[0].source_id, "localized")
+        self.assertEqual(len(warnings), 1)
+        self.assertTrue(warnings[0].startswith("offline:"))
+
     def test_scrape_retries_with_structured_aliases_after_primary_miss(self):
         provider = AliasOnlyProvider()
         local = AlbumMetadata(

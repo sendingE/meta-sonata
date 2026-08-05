@@ -6,18 +6,18 @@ import html
 import json
 import re
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol
 
 from mutagen import File as MutagenFile
+from mutagen.id3 import ID3
+from mutagen.mp4 import MP4
 
 from .matching import has_live_words, text_similarity
 from .models import AlbumPlan, TrackPlan
-from .providers import DEFAULT_TIMEOUT
+from .network import fetch_json, fetch_text
 
 
 LYRICS_TAG_KEYS = ("lyrics", "unsyncedlyrics", "syncedlyrics")
@@ -131,6 +131,7 @@ class MusicTagLyricsProvider:
         self.sources = get_lyrics_sources(source_names)
         self.limit_per_source = limit_per_source
         self.min_score = min_score
+        self.warnings: list[str] = []
 
     def get_lyrics(
         self,
@@ -141,14 +142,19 @@ class MusicTagLyricsProvider:
         duration: int | None = None,
     ) -> LyricsResult | None:
         del duration
+        self.warnings = []
         ranked: list[tuple[LyricsSource, LyricsCandidate]] = []
         for source in self.sources:
-            candidates = source.search(
-                track_name=track_name,
-                artist_name=artist_name,
-                album_name=album_name,
-                limit=self.limit_per_source,
-            )
+            try:
+                candidates = source.search(
+                    track_name=track_name,
+                    artist_name=artist_name,
+                    album_name=album_name,
+                    limit=self.limit_per_source,
+                )
+            except Exception as exc:
+                self.warnings.append(f"{source.name}_error:{exc.__class__.__name__}")
+                continue
             scored = [
                 replace(
                     candidate,
@@ -167,7 +173,13 @@ class MusicTagLyricsProvider:
         for source, candidate in ranked:
             if candidate.score < self.min_score:
                 break
-            lyric = normalize_synced_lyrics(_clean_lyrics(source.fetch_lyric(candidate.source_id)))
+            try:
+                lyric = normalize_synced_lyrics(
+                    _clean_lyrics(source.fetch_lyric(candidate.source_id))
+                )
+            except Exception as exc:
+                self.warnings.append(f"{source.name}_error:{exc.__class__.__name__}")
+                continue
             if not lyric:
                 continue
             lyric_title = lrc_metadata(lyric, "ti")
@@ -556,26 +568,6 @@ def get_lyrics_provider(source_names: str | list[str] | None = None) -> LyricsPr
     return MusicTagLyricsProvider(names)
 
 
-def fetch_json(
-    url: str,
-    *,
-    headers: dict[str, str] | None = None,
-    data: bytes | None = None,
-    timeout: int = DEFAULT_TIMEOUT,
-) -> Any:
-    req = urllib.request.Request(url, data=data, headers=headers or {})
-    with urllib.request.urlopen(req, timeout=timeout) as res:
-        charset = res.headers.get_content_charset() or "utf-8"
-        return json.loads(res.read().decode(charset, errors="replace"))
-
-
-def fetch_text(url: str, *, headers: dict[str, str] | None = None, timeout: int = DEFAULT_TIMEOUT) -> str:
-    req = urllib.request.Request(url, headers=headers or {})
-    with urllib.request.urlopen(req, timeout=timeout) as res:
-        charset = res.headers.get_content_charset() or "utf-8"
-        return res.read().decode(charset, errors="replace")
-
-
 def music_tag_keyword(track_name: str, artist_name: str | None) -> str:
     title = track_name.strip()
     artist = (artist_name or "").strip()
@@ -654,12 +646,35 @@ def has_embedded_lyrics(path: Path) -> bool:
 
 
 def embedded_lyrics(path: Path) -> dict[str, str]:
+    if path.suffix.lower() == ".mp3":
+        try:
+            tags = ID3(str(path))
+        except Exception:
+            return {}
+        values: dict[str, str] = {}
+        unsynced = next(iter(tags.getall("USLT")), None)
+        if unsynced and str(unsynced.text).strip():
+            values["lyrics"] = str(unsynced.text)
+            values["unsyncedlyrics"] = str(unsynced.text)
+        synced = tags.get("TXXX:SYNCEDLYRICS")
+        if synced and getattr(synced, "text", None):
+            values["syncedlyrics"] = str(synced.text[0])
+        return values
+
     try:
         audio = MutagenFile(str(path), easy=False)
     except Exception:
         return {}
     if audio is None:
         return {}
+    if isinstance(audio, MP4):
+        rows = (audio.tags or {}).get("\xa9lyr") or []
+        if not rows:
+            return {}
+        value = str(rows[0])
+        result = {"lyrics": value}
+        result["syncedlyrics" if has_lrc_timestamps(value) else "unsyncedlyrics"] = value
+        return result
     tags = getattr(audio, "tags", None) or audio
     values: dict[str, str] = {}
     for key in LYRICS_TAG_KEYS:
@@ -755,6 +770,7 @@ def enrich_album_plan_with_lyrics(
                         query_variants.append(variant)
 
             results: list[LyricsResult] = []
+            provider_warnings: list[str] = []
             for query_artist, query_album in query_variants:
                 candidate_result = provider.get_lyrics(
                     artist_name=query_artist,
@@ -762,21 +778,23 @@ def enrich_album_plan_with_lyrics(
                     album_name=query_album,
                     duration=duration,
                 )
+                for warning in getattr(provider, "warnings", []):
+                    if warning not in provider_warnings:
+                        provider_warnings.append(warning)
                 if candidate_result is not None:
                     results.append(candidate_result)
                     if candidate_result.score >= 0.995:
                         break
             result = max(results, key=lambda item: item.score) if results else None
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-            warnings.append(f"lyrics_error:{provider.name}:{exc}")
-            report = replace(report, errors=report.errors + 1)
-            enriched_tracks.append(replace(track, tags=tags, warnings=warnings))
-            continue
         except Exception as exc:
-            warnings.append(f"lyrics_error:{provider.name}:{exc}")
+            warnings.append(f"lyrics_error:{provider.name}:{exc.__class__.__name__}")
             report = replace(report, errors=report.errors + 1)
             enriched_tracks.append(replace(track, tags=tags, warnings=warnings))
             continue
+
+        if provider_warnings:
+            warnings.extend(f"lyrics_error:{warning}" for warning in provider_warnings)
+            report = replace(report, errors=report.errors + len(provider_warnings))
 
         if result is None:
             warnings.append(f"lyrics_not_found:{provider.name}")

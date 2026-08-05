@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "meta-sonata"
-version = "0.1.2"
+version = "0.2.0"
 description = "Automatically fetch and safely complete music metadata, cover art, and synced lyrics from the CLI."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -42,3 +42,6 @@ meta-sonata = "meta_sonata.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+meta_sonata = ["assets/*.svg", "assets/locales/*.json"]

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import base64
 import mimetypes
 import posixpath
 import re
 import threading
 import urllib.parse
 from datetime import datetime
+from functools import lru_cache
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -14,9 +16,44 @@ from typing import Any
 
 from mutagen import File as MutagenFile
 from mutagen.flac import FLAC
+from mutagen.id3 import ID3
+from mutagen.mp4 import MP4
 
+from .catalog import CatalogDatabase, sync_library_in_background, try_default_catalog
+from .lyrics import embedded_lyrics
 from .models import AUDIO_EXTENSIONS, COVER_FILENAMES
 from .scanner import is_ignored_name
+
+
+ASSETS_DIR = Path(__file__).with_name("assets")
+LOCALIZATION_DIR = ASSETS_DIR / "locales"
+SUPPORTED_LOCALES = ("en", "zh-Hans", "zh-Hant", "ja", "ko", "fr", "de", "es", "pt-BR")
+BRAND_ICON_SVG = (ASSETS_DIR / "MetaSonata.svg").read_text(encoding="utf-8")
+
+
+def resolve_locale(value: str | None) -> str:
+    normalized = (value or "").strip().replace("_", "-").lower()
+    if normalized.startswith("zh"):
+        if any(part in normalized for part in ("hant", "-tw", "-hk", "-mo")):
+            return "zh-Hant"
+        return "zh-Hans"
+    if normalized == "pt" or normalized.startswith("pt-"):
+        return "pt-BR"
+    for locale in SUPPORTED_LOCALES:
+        lowered = locale.lower()
+        if normalized == lowered or normalized.startswith(f"{lowered}-"):
+            return locale
+    return "en"
+
+
+@lru_cache(maxsize=len(SUPPORTED_LOCALES))
+def localized_messages(locale: str) -> dict[str, str]:
+    resolved = resolve_locale(locale)
+    fallback = json.loads((LOCALIZATION_DIR / "en.json").read_text(encoding="utf-8"))
+    if resolved == "en":
+        return fallback
+    translated = json.loads((LOCALIZATION_DIR / f"{resolved}.json").read_text(encoding="utf-8"))
+    return {**fallback, **translated}
 
 
 HTML = """<!doctype html>
@@ -25,6 +62,7 @@ HTML = """<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>meta-sonata</title>
+  <script>if (new URLSearchParams(location.search).has("embedded")) document.documentElement.classList.add("embedded");</script>
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
@@ -32,46 +70,40 @@ HTML = """<!doctype html>
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 44 44" focusable="false">
-            <path class="mark-top" d="M36 7H15a7.5 7.5 0 0 0 0 15h14"></path>
-            <path class="mark-bottom" d="M8 37h21a7.5 7.5 0 0 0 0-15H15"></path>
-          </svg>
+          <img src="/static/meta-sonata.svg" alt="">
         </div>
         <div class="brand-copy">
           <strong><span>meta</span><b>-</b><span>sonata</span></strong>
-          <span>library inspector</span>
+          <span data-i18n="web.brand.subtitle">library inspector</span>
         </div>
       </div>
       <div class="topbar-context">
         <span id="root-label" class="root-path"></span>
-        <span class="status-pill"><span class="status-dot"></span>Local / read only</span>
+        <span class="status-pill"><span class="status-dot"></span><span data-i18n="web.status.local_readonly">Local / Read Only</span></span>
       </div>
     </header>
     <main class="workspace">
-      <aside class="sidebar" aria-label="Library tree">
+      <aside class="sidebar" aria-label="Library tree" data-i18n-aria-label="web.aria.library_tree">
         <div class="sidebar-heading">
           <div>
-            <div class="eyebrow">Workspace</div>
-            <h2>Library</h2>
+            <div class="eyebrow" data-i18n="web.workspace">Workspace</div>
+            <h2 data-i18n="web.library">Library</h2>
           </div>
-          <button id="refresh-tree" class="action-button" type="button">Refresh</button>
+          <button id="refresh-tree" class="action-button" type="button" data-i18n="web.refresh">Refresh</button>
         </div>
-        <div id="tree" class="tree"><div class="tree-note">Loading library...</div></div>
+        <div id="tree" class="tree"><div class="tree-note" data-i18n="web.loading_library">Loading library…</div></div>
         <div class="sidebar-footer">
           <span id="visible-count">0 items</span>
-          <span>Local files</span>
+          <span data-i18n="web.local_files">Local files</span>
         </div>
       </aside>
       <section class="viewer" aria-live="polite">
         <div id="empty-state" class="empty-state">
           <div class="empty-mark" aria-hidden="true">
-            <svg viewBox="0 0 44 44" focusable="false">
-              <path class="mark-top" d="M36 7H15a7.5 7.5 0 0 0 0 15h14"></path>
-              <path class="mark-bottom" d="M8 37h21a7.5 7.5 0 0 0 0-15H15"></path>
-            </svg>
+            <img src="/static/meta-sonata.svg" alt="">
           </div>
-          <h1>Select a track</h1>
-          <p>Choose an audio file from the library to inspect its embedded metadata, artwork, and lyrics.</p>
+          <h1 data-i18n="web.select_track">Select a Track</h1>
+          <p data-i18n="web.select_track_hint">Choose an audio file to inspect its embedded metadata, artwork, and lyrics.</p>
         </div>
         <div id="track-view" class="track-view hidden">
           <section class="track-hero">
@@ -81,49 +113,49 @@ HTML = """<!doctype html>
                 <div class="placeholder-disc" aria-hidden="true">
                   <span class="placeholder-label"></span>
                 </div>
-                <span class="placeholder-caption">No artwork</span>
+                <span class="placeholder-caption" data-i18n="web.no_artwork">No Artwork</span>
               </div>
             </div>
             <div class="track-title-block">
               <div id="track-path" class="path-line"></div>
-              <div class="track-kicker">Now inspecting</div>
+              <div class="track-kicker" data-i18n="web.now_inspecting">Now Inspecting</div>
               <h1 id="track-title"></h1>
               <div id="track-subtitle" class="subtitle"></div>
               <div id="track-badges" class="badges"></div>
               <div class="quick-stats">
-                <div><span>Format</span><strong id="stat-format">-</strong></div>
-                <div><span>Duration</span><strong id="stat-duration">-</strong></div>
-                <div><span>Track</span><strong id="stat-track">-</strong></div>
+                <div><span data-i18n="web.stat.format">Format</span><strong id="stat-format">-</strong></div>
+                <div><span data-i18n="web.stat.duration">Duration</span><strong id="stat-duration">-</strong></div>
+                <div><span data-i18n="web.stat.track">Track</span><strong id="stat-track">-</strong></div>
               </div>
             </div>
           </section>
-          <nav class="view-tabs" aria-label="Metadata views">
-            <button class="view-tab active" type="button" data-view="overview">Overview</button>
-            <button class="view-tab" type="button" data-view="raw">All tags <span id="tag-count"></span></button>
+          <nav class="view-tabs" aria-label="Metadata views" data-i18n-aria-label="web.aria.metadata_views">
+            <button class="view-tab active" type="button" data-view="overview"><span data-i18n="web.overview">Overview</span></button>
+            <button class="view-tab" type="button" data-view="raw"><span data-i18n="web.all_tags">All Tags</span> <span id="tag-count"></span></button>
           </nav>
           <div id="overview-view" class="metadata-view">
             <section class="detail-grid">
             <article class="panel file-panel">
-              <div class="panel-heading"><h3>File</h3><span>Technical</span></div>
+              <div class="panel-heading"><h3 data-i18n="web.file">File</h3><span data-i18n="web.technical">Technical</span></div>
               <dl id="file-info" class="kv"></dl>
             </article>
             <article class="panel core-panel">
-              <div class="panel-heading"><h3>Core metadata</h3><span>Embedded</span></div>
+              <div class="panel-heading"><h3 data-i18n="web.core_metadata">Core Metadata</h3><span data-i18n="web.embedded">Embedded</span></div>
               <dl id="core-tags" class="kv"></dl>
             </article>
             <article class="panel source-panel">
-              <div class="panel-heading"><h3>Provenance</h3><span>Sources</span></div>
+              <div class="panel-heading"><h3 data-i18n="web.provenance">Provenance</h3><span data-i18n="web.sources">Sources</span></div>
               <dl id="source-tags" class="kv"></dl>
             </article>
             <article class="panel lyrics-panel">
-              <div class="panel-heading"><h3>Lyrics</h3><span id="lyrics-format">Embedded</span></div>
+              <div class="panel-heading"><h3 data-i18n="web.lyrics">Lyrics</h3><span id="lyrics-format">Embedded</span></div>
               <dl id="lyrics-summary" class="kv lyrics-summary"></dl>
               <pre id="lyrics-preview" class="lyrics-preview"></pre>
             </article>
             </section>
           </div>
           <section id="raw-view" class="metadata-view hidden panel all-tags-panel">
-            <div class="panel-heading"><h3>All tags</h3><span>Raw values</span></div>
+            <div class="panel-heading"><h3 data-i18n="web.all_tags">All Tags</h3><span data-i18n="web.raw_values">Raw Values</span></div>
             <div id="all-tags" class="tag-table"></div>
           </section>
         </div>
@@ -212,28 +244,11 @@ button:focus-visible {
   flex: 0 0 auto;
 }
 
-.brand-mark svg,
-.empty-mark svg {
+.brand-mark img,
+.empty-mark img {
   width: 100%;
   height: 100%;
   display: block;
-  overflow: visible;
-}
-
-.brand-mark path,
-.empty-mark path {
-  fill: none;
-  stroke-width: 5;
-  stroke-linecap: square;
-  stroke-linejoin: round;
-}
-
-.mark-top {
-  stroke: var(--signal);
-}
-
-.mark-bottom {
-  stroke: #6f8bff;
 }
 
 .brand-copy {
@@ -305,6 +320,14 @@ button:focus-visible {
   display: grid;
   grid-template-columns: minmax(286px, 316px) minmax(0, 1fr);
   min-height: calc(100vh - 67px);
+}
+
+.embedded .topbar {
+  display: none;
+}
+
+.embedded .workspace {
+  min-height: 100vh;
 }
 
 .sidebar {
@@ -478,6 +501,39 @@ button:focus-visible {
   padding: 34px clamp(24px, 4vw, 58px) 56px;
 }
 
+@media (min-width: 901px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .workspace {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .embedded .workspace {
+    min-height: 0;
+  }
+
+  .sidebar,
+  .viewer {
+    min-height: 0;
+  }
+
+  .tree,
+  .viewer {
+    overscroll-behavior: contain;
+  }
+}
+
 .track-view {
   width: min(1220px, 100%);
   margin: 0 auto;
@@ -495,10 +551,6 @@ button:focus-visible {
   width: 60px;
   height: 60px;
   margin: 0 auto 18px;
-  padding: 9px;
-  border: 1px solid var(--line-strong);
-  border-radius: 5px;
-  background: #ffffff;
 }
 
 .empty-state h1 {
@@ -940,9 +992,41 @@ const state = {
   selectedRel: null,
   loaded: new Map(),
   expanded: new Set([""]),
+  locale: "en",
+  messages: {},
 };
 
 const el = (id) => document.getElementById(id);
+
+function t(key, values = {}) {
+  let value = state.messages[key] || key;
+  for (const [name, replacement] of Object.entries(values)) {
+    value = value.replaceAll(`{${name}}`, String(replacement));
+  }
+  return value;
+}
+
+function plural(base, count) {
+  return t(`${base}.${count === 1 ? "one" : "other"}`, { count });
+}
+
+function applyTranslations() {
+  document.documentElement.lang = state.locale;
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((node) => {
+    node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel));
+  });
+}
+
+async function loadLocale() {
+  const requested = new URLSearchParams(location.search).get("lang") || navigator.language || "en";
+  const payload = await fetchJson(`/api/i18n?lang=${encodeURIComponent(requested)}`);
+  state.locale = payload.locale;
+  state.messages = payload.messages;
+  applyTranslations();
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -962,7 +1046,11 @@ function formatBytes(bytes) {
     size /= 1024;
     unit += 1;
   }
-  return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+  const formatted = new Intl.NumberFormat(state.locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: unit === 0 ? 0 : 1,
+  }).format(size);
+  return `${formatted} ${units[unit]}`;
 }
 
 function formatDuration(seconds) {
@@ -1012,7 +1100,7 @@ function renderTree() {
   const rootButton = document.createElement("button");
   rootButton.className = "tree-row root-row";
   rootButton.type = "button";
-  rootButton.innerHTML = `<span class="tree-icon directory ${state.expanded.has("") ? "open" : ""}"></span><span class="tree-label">${escapeHtml(state.root?.name || "Root")}</span>`;
+  rootButton.innerHTML = `<span class="tree-icon directory ${state.expanded.has("") ? "open" : ""}"></span><span class="tree-label">${escapeHtml(state.root?.name || t("web.root"))}</span>`;
   rootButton.addEventListener("click", async () => {
     toggleDirectory("");
   });
@@ -1029,7 +1117,7 @@ function renderChildren(rel, container) {
   if (!nodes.length) {
     const note = document.createElement("div");
     note.className = "tree-note";
-    note.textContent = "Empty";
+    note.textContent = t("web.empty");
     container.appendChild(note);
     return;
   }
@@ -1070,7 +1158,7 @@ function updateVisibleCount() {
   const nodes = [...state.loaded.values()].flat();
   const unique = new Set(nodes.map((node) => node.rel));
   const tracks = nodes.filter((node) => node.type === "audio" && unique.has(node.rel)).length;
-  const label = tracks ? `${tracks} track${tracks === 1 ? "" : "s"}` : `${unique.size} item${unique.size === 1 ? "" : "s"}`;
+  const label = tracks ? plural("web.count.tracks", tracks) : plural("web.count.items", unique.size);
   el("visible-count").textContent = label;
 }
 
@@ -1101,7 +1189,7 @@ function renderTrack(detail) {
   const artist = firstTag(detail.tags, "artist") || firstTag(detail.tags, "albumartist");
   const album = firstTag(detail.tags, "album");
   el("track-subtitle").textContent = [artist, album].filter(Boolean).join(" - ");
-  const tagTotal = Object.keys(detail.tags || {}).length;
+  const tagTotal = Object.keys(detail.raw_tags || detail.tags || {}).length;
   el("tag-count").textContent = tagTotal;
   const format = String(detail.file.suffix || detail.format || "").replace(/^\./, "").toUpperCase();
   el("stat-format").textContent = format || "-";
@@ -1128,11 +1216,13 @@ function renderTrack(detail) {
     "discnumber", "genre", "label", "catalognumber", "barcode",
   ]));
   renderDefinitionList("source-tags", pickTags(detail.tags, [
-    "musicinfo_source", "musicbrainz_albumid", "musicbrainz_trackid",
+    "musicinfo_source", "musicbrainz_artistid", "musicbrainz_albumartistid",
+    "musicbrainz_recordingid", "musicbrainz_albumid", "musicbrainz_releasegroupid",
+    "musicbrainz_trackid",
     "lyrics_source", "lyrics_score",
   ]));
   renderLyrics(detail);
-  renderAllTags(detail.tags);
+  renderAllTags(detail.raw_tags || detail.tags);
 }
 
 function firstTag(tags, key) {
@@ -1151,24 +1241,28 @@ function pickTags(tags, keys) {
 
 function tagLabel(key) {
   const labels = {
-    title: "Title",
-    artist: "Artist",
-    albumartist: "Album artist",
-    album: "Album",
-    date: "Date",
-    tracknumber: "Track",
-    discnumber: "Disc",
-    genre: "Genre",
-    label: "Label",
-    catalognumber: "Catalog",
-    barcode: "Barcode",
-    musicinfo_source: "Metadata source",
-    musicbrainz_albumid: "MusicBrainz release",
-    musicbrainz_trackid: "MusicBrainz track",
-    lyrics_source: "Lyrics source",
-    lyrics_score: "Lyrics score",
+    title: "field.title",
+    artist: "field.artist",
+    albumartist: "field.album_artist",
+    album: "field.album",
+    date: "field.date",
+    tracknumber: "field.track",
+    discnumber: "field.disc",
+    genre: "field.genre",
+    label: "field.label",
+    catalognumber: "field.catalog",
+    barcode: "field.barcode",
+    musicinfo_source: "field.metadata_source",
+    musicbrainz_artistid: "field.musicbrainz_artist",
+    musicbrainz_albumartistid: "field.musicbrainz_release_artist",
+    musicbrainz_recordingid: "field.musicbrainz_recording",
+    musicbrainz_albumid: "field.musicbrainz_release",
+    musicbrainz_releasegroupid: "field.musicbrainz_release_group",
+    musicbrainz_trackid: "field.musicbrainz_track",
+    lyrics_source: "field.lyrics_source",
+    lyrics_score: "field.lyrics_score",
   };
-  return labels[key] || key;
+  return labels[key] ? t(labels[key]) : key;
 }
 
 function formatTagValue(value) {
@@ -1181,14 +1275,14 @@ function fileRows(detail) {
   const info = detail.audio || {};
   const format = String(detail.file.suffix || detail.format || "").replace(/^\./, "").toUpperCase();
   return [
-    ["Name", detail.file.name],
-    ["Format", format],
-    ["Size", formatBytes(detail.file.size)],
-    ["Modified", detail.file.modified || ""],
-    ["Duration", formatDuration(info.length)],
-    ["Bitrate", info.bitrate ? `${Math.round(info.bitrate / 1000)} kbps` : ""],
-    ["Sample Rate", info.sample_rate ? `${info.sample_rate} Hz` : ""],
-    ["Channels", info.channels || ""],
+    [t("web.file.name"), detail.file.name],
+    [t("web.file.format"), format],
+    [t("web.file.size"), formatBytes(detail.file.size)],
+    [t("web.file.modified"), detail.file.modified || ""],
+    [t("web.file.duration"), formatDuration(info.length)],
+    [t("web.file.bitrate"), info.bitrate ? `${Math.round(info.bitrate / 1000)} kbps` : ""],
+    [t("web.file.sample_rate"), info.sample_rate ? `${info.sample_rate} Hz` : ""],
+    [t("web.file.channels"), info.channels || ""],
   ];
 }
 
@@ -1199,7 +1293,7 @@ function renderDefinitionList(id, rows) {
   if (!visibleRows.length) {
     const empty = document.createElement("dd");
     empty.className = "empty-value";
-    empty.textContent = "Not available";
+    empty.textContent = t("web.not_available");
     node.appendChild(empty);
     return;
   }
@@ -1215,25 +1309,28 @@ function renderDefinitionList(id, rows) {
 
 function renderBadges(detail) {
   const badges = [];
-  if (detail.cover) badges.push(["ok", "Artwork"]);
-  else badges.push(["warn", "No artwork"]);
-  if (detail.lyrics.has_lyrics) badges.push(["ok", detail.lyrics.has_synced ? "Synced lyrics" : "Lyrics"]);
-  else badges.push(["warn", "No lyrics"]);
-  if (firstTag(detail.tags, "musicbrainz_albumid")) badges.push(["ok", "MusicBrainz"]);
-  if (detail.warnings.length) badges.push(["warn", `${detail.warnings.length} warning${detail.warnings.length === 1 ? "" : "s"}`]);
+  if (detail.cover) badges.push(["ok", t("web.artwork")]);
+  else badges.push(["warn", t("web.no_artwork")]);
+  if (detail.lyrics.has_lyrics) badges.push(["ok", detail.lyrics.has_synced ? t("web.synced_lyrics") : t("web.lyrics")]);
+  else badges.push(["warn", t("web.no_lyrics")]);
+  if (
+    firstTag(detail.tags, "musicbrainz_albumid")
+    || firstTag(detail.tags, "musicbrainz_recordingid")
+  ) badges.push(["ok", "MusicBrainz"]);
+  if (detail.warnings.length) badges.push(["warn", plural("web.warning", detail.warnings.length)]);
   el("track-badges").innerHTML = badges.map(([kind, label]) => `<span class="badge ${kind}">${escapeHtml(label)}</span>`).join("");
 }
 
 function renderLyrics(detail) {
   const summary = [
-    ["Has Lyrics", detail.lyrics.has_lyrics ? "yes" : "no"],
-    ["Synced", detail.lyrics.has_synced ? "yes" : "no"],
-    ["Characters", detail.lyrics.length || ""],
-    ["Source", firstTag(detail.tags, "lyrics_source")],
+    [t("web.lyrics.has"), detail.lyrics.has_lyrics ? t("web.yes") : t("web.no")],
+    [t("web.lyrics.synced"), detail.lyrics.has_synced ? t("web.yes") : t("web.no")],
+    [t("web.lyrics.characters"), detail.lyrics.length || ""],
+    [t("web.lyrics.source"), firstTag(detail.tags, "lyrics_source")],
   ];
   renderDefinitionList("lyrics-summary", summary);
-  el("lyrics-format").textContent = detail.lyrics.has_synced ? "Synced LRC" : (detail.lyrics.has_lyrics ? "Plain text" : "Not found");
-  el("lyrics-preview").textContent = detail.lyrics.preview || "No embedded lyrics";
+  el("lyrics-format").textContent = detail.lyrics.has_synced ? t("web.lyrics.synced_lrc") : (detail.lyrics.has_lyrics ? t("web.lyrics.plain_text") : t("web.lyrics.not_found"));
+  el("lyrics-preview").textContent = detail.lyrics.preview || t("web.lyrics.no_embedded");
 }
 
 function renderAllTags(tags) {
@@ -1264,7 +1361,7 @@ function setMetadataView(view) {
 function summarizeTag(key, value) {
   const text = formatTagValue(value);
   if (/lyrics/i.test(key) && text.length > 180) {
-    return `${text.slice(0, 180)} ... (${text.length} chars)`;
+    return t("web.summary.characters", { preview: text.slice(0, 180), count: text.length });
   }
   return text;
 }
@@ -1278,10 +1375,15 @@ document.querySelectorAll(".view-tab").forEach((tab) => {
 });
 
 function showError(error) {
-  el("tree").innerHTML = `<div class="tree-note">${escapeHtml(error.message)}</div>`;
+  el("tree").innerHTML = `<div class="tree-note">${escapeHtml(t("web.error.loading"))}</div>`;
 }
 
-loadRoot().catch(showError);
+async function bootstrap() {
+  await loadLocale();
+  await loadRoot();
+}
+
+bootstrap().catch(showError);
 """
 
 
@@ -1292,12 +1394,15 @@ def serve_web(root: Path, *, host: str = "127.0.0.1", port: int = 8765) -> None:
     if not root.is_dir():
         raise NotADirectoryError(root)
 
-    handler = make_handler(root)
+    catalog = try_default_catalog()
+    handler = make_handler(root, catalog=catalog)
     server = ThreadingHTTPServer((host, port), handler)
     server.daemon_threads = True
     url = f"http://{host}:{server.server_port}/"
     print(f"meta-sonata web serving {root}")
     print(f"url: {url}")
+    if catalog:
+        sync_library_in_background(catalog, root)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -1306,7 +1411,7 @@ def serve_web(root: Path, *, host: str = "127.0.0.1", port: int = 8765) -> None:
         server.server_close()
 
 
-def make_handler(root: Path):
+def make_handler(root: Path, *, catalog: CatalogDatabase | None = None):
     class MetaSonataWebHandler(BaseHTTPRequestHandler):
         server_version = "MetaSonataWeb/0.1"
 
@@ -1319,14 +1424,35 @@ def make_handler(root: Path):
                     self.send_text(CSS, "text/css; charset=utf-8")
                 elif parsed.path == "/static/app.js":
                     self.send_text(JS, "application/javascript; charset=utf-8")
+                elif parsed.path == "/static/meta-sonata.svg":
+                    self.send_text(BRAND_ICON_SVG, "image/svg+xml; charset=utf-8")
+                elif parsed.path == "/api/i18n":
+                    locale = resolve_locale(query_value(parsed.query, "lang"))
+                    self.send_json({"locale": locale, "messages": localized_messages(locale)})
                 elif parsed.path == "/api/root":
-                    self.send_json({"name": root.name or str(root), "path": str(root)})
+                    self.send_json(
+                        {
+                            "name": root.name or str(root),
+                            "path": str(root),
+                            "catalog_enabled": catalog is not None,
+                        }
+                    )
                 elif parsed.path == "/api/children":
                     rel = query_value(parsed.query, "rel")
                     self.send_json({"children": build_child_listing(root, rel)})
                 elif parsed.path == "/api/track":
                     rel = query_value(parsed.query, "rel")
-                    self.send_json(track_detail(root, rel))
+                    detail = track_detail(root, rel)
+                    if catalog:
+                        try:
+                            catalog.index_audio_file(
+                                root,
+                                safe_join(root, rel),
+                                tags=detail["tags"],
+                            )
+                        except Exception:
+                            pass
+                    self.send_json(detail)
                 elif parsed.path == "/api/cover":
                     rel = query_value(parsed.query, "rel")
                     self.send_cover(root, rel)
@@ -1444,11 +1570,16 @@ def track_detail(root: Path, rel: str) -> dict[str, Any]:
         raise ValueError("not an audio file")
 
     audio = MutagenFile(str(path), easy=False)
-    tags = normalize_tags(getattr(audio, "tags", None))
+    raw_tags = normalize_tags(getattr(audio, "tags", None))
+    easy_audio = MutagenFile(str(path), easy=True)
+    tags = normalize_tags(getattr(easy_audio, "tags", None))
+    for key, value in embedded_lyrics(path).items():
+        tags[key] = [value]
+    add_canonical_raw_tags(tags, raw_tags)
     info = audio_info(audio)
     lyrics = lyrics_info(tags)
     warnings = []
-    if not tags:
+    if not tags and not raw_tags:
         warnings.append("no readable tags")
     if not lyrics["has_lyrics"]:
         warnings.append("no embedded lyrics")
@@ -1458,10 +1589,48 @@ def track_detail(root: Path, rel: str) -> dict[str, Any]:
         "format": audio.__class__.__name__ if audio else None,
         "audio": info,
         "tags": tags,
+        "raw_tags": raw_tags,
         "lyrics": lyrics,
         "cover": bool(cover_bytes(path)[0]),
         "warnings": warnings,
     }
+
+
+RAW_TAG_ALIASES = {
+    "tit2": "title",
+    "tpe1": "artist",
+    "tpe2": "albumartist",
+    "talb": "album",
+    "tdrc": "date",
+    "tyer": "date",
+    "tcon": "genre",
+    "trck": "tracknumber",
+    "tpos": "discnumber",
+    "txxx:musicinfo_source": "musicinfo_source",
+    "txxx:musicbrainz artist id": "musicbrainz_artistid",
+    "txxx:musicbrainz_artistid": "musicbrainz_artistid",
+    "txxx:musicbrainz album artist id": "musicbrainz_albumartistid",
+    "txxx:musicbrainz_albumartistid": "musicbrainz_albumartistid",
+    "txxx:musicbrainz album id": "musicbrainz_albumid",
+    "txxx:musicbrainz_albumid": "musicbrainz_albumid",
+    "txxx:musicbrainz release group id": "musicbrainz_releasegroupid",
+    "txxx:musicbrainz_releasegroupid": "musicbrainz_releasegroupid",
+    "txxx:musicbrainz recording id": "musicbrainz_recordingid",
+    "txxx:musicbrainz_recordingid": "musicbrainz_recordingid",
+    "txxx:musicbrainz track id": "musicbrainz_trackid",
+    "txxx:musicbrainz_trackid": "musicbrainz_trackid",
+    "txxx:lyrics_source": "lyrics_source",
+    "txxx:lyrics_score": "lyrics_score",
+}
+
+
+def add_canonical_raw_tags(
+    tags: dict[str, list[str]],
+    raw_tags: dict[str, list[str]],
+) -> None:
+    for raw_key, canonical_key in RAW_TAG_ALIASES.items():
+        if canonical_key not in tags and raw_key in raw_tags:
+            tags[canonical_key] = raw_tags[raw_key]
 
 
 def file_info(path: Path) -> dict[str, Any]:
@@ -1555,6 +1724,31 @@ def cover_bytes(path: Path) -> tuple[bytes | None, str]:
         picture = audio.pictures[0]
         return picture.data, picture.mime or "image/jpeg"
 
+    if path.suffix.lower() == ".mp3":
+        try:
+            frames = ID3(str(path)).getall("APIC")
+        except Exception:
+            frames = []
+        if frames:
+            return frames[0].data, frames[0].mime or "image/jpeg"
+
+    if isinstance(audio, MP4):
+        covers = (audio.tags or {}).get("covr") or []
+        if covers:
+            image = covers[0]
+            mime = "image/png" if getattr(image, "imageformat", None) == 14 else "image/jpeg"
+            return bytes(image), mime
+
+    picture_tags = (getattr(audio, "tags", None) or {}).get("metadata_block_picture") if audio else None
+    if picture_tags:
+        try:
+            from mutagen.flac import Picture
+
+            picture = Picture(base64.b64decode(picture_tags[0]))
+            return picture.data, picture.mime or "image/jpeg"
+        except Exception:
+            pass
+
     local = local_cover(path.parent)
     if local:
         return local.read_bytes(), mimetypes.guess_type(str(local))[0] or "image/jpeg"
@@ -1568,9 +1762,21 @@ def local_cover(directory: Path) -> Path | None:
     return None
 
 
-def run_server_in_thread(root: Path, *, host: str = "127.0.0.1", port: int = 8765) -> tuple[ThreadingHTTPServer, str]:
+def run_server_in_thread(
+    root: Path,
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    catalog: CatalogDatabase | None = None,
+) -> tuple[ThreadingHTTPServer, str]:
     root = root.expanduser().resolve()
-    server = ThreadingHTTPServer((host, port), make_handler(root))
+    if not root.exists():
+        raise FileNotFoundError(root)
+    if not root.is_dir():
+        raise NotADirectoryError(root)
+    server = ThreadingHTTPServer((host, port), make_handler(root, catalog=catalog))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
+    if catalog:
+        sync_library_in_background(catalog, root)
     return server, f"http://{host}:{server.server_port}/"

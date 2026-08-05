@@ -61,7 +61,10 @@ def conservative_release_candidate(
         return best, None
 
     warning = "ambiguous_release_identity"
-    tracks = [replace(track, source_id=None) for track in best.tracks]
+    tracks = [
+        replace(track, source_id=None, recording_id=None, track_id=None)
+        for track in best.tracks
+    ]
     return (
         replace(
             best,
@@ -70,6 +73,7 @@ def conservative_release_candidate(
             barcode=None,
             cover_url=None,
             source_url=None,
+            release_group_id=None,
             tracks=tracks,
             warnings=[*best.warnings, warning],
         ),

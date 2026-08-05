@@ -60,6 +60,35 @@ class FakeLyricsSource:
 
 
 class LyricsTest(unittest.TestCase):
+    def test_one_failed_source_does_not_block_later_sources(self):
+        class FailingSource:
+            name = "offline"
+
+            def search(self, **kwargs):
+                del kwargs
+                raise TimeoutError("offline")
+
+        working = FakeLyricsSource(
+            "working",
+            LyricsCandidate(
+                source="working",
+                source_id="found",
+                title="Song",
+                artist="Artist",
+            ),
+        )
+        provider = MusicTagLyricsProvider(["fake"])
+        provider.sources = [FailingSource(), working]
+
+        result = provider.get_lyrics(
+            artist_name="Artist",
+            track_name="Song",
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.provider, "working")
+        self.assertEqual(provider.warnings, ["offline_error:TimeoutError"])
+
     def test_existing_lrc_in_generic_tag_is_migrated_without_fetching(self):
         if shutil.which("ffmpeg") is None:
             self.skipTest("ffmpeg is required to generate a temporary FLAC")

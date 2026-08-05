@@ -1,33 +1,14 @@
 from __future__ import annotations
 
-import json
 import time
 import urllib.parse
-import urllib.request
 from dataclasses import replace
 from typing import Any
 
 from .matching import duration_mismatch_ms, score_candidate
 from .models import AlbumMetadata, ScrapeCandidate, ScrapedTrack
-
-
-USER_AGENT = "meta-sonata/0.1 (+local metadata workflow)"
-DEFAULT_TIMEOUT = 15
+from .network import fetch_json
 ALIAS_QUERY_THRESHOLD = 0.72
-
-
-class ProviderError(RuntimeError):
-    pass
-
-
-def fetch_json(url: str, *, timeout: int = DEFAULT_TIMEOUT, headers: dict[str, str] | None = None) -> Any:
-    req_headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
-    if headers:
-        req_headers.update(headers)
-    req = urllib.request.Request(url, headers=req_headers)
-    with urllib.request.urlopen(req, timeout=timeout) as res:
-        charset = res.headers.get_content_charset() or "utf-8"
-        return json.loads(res.read().decode(charset, errors="replace"))
 
 
 def build_query(local: AlbumMetadata) -> str:
@@ -41,6 +22,19 @@ def _first_artist(value: Any) -> str | None:
         if isinstance(item, dict):
             return item.get("name") or item.get("artist", {}).get("name")
     return None
+
+
+def _artist_ids(value: Any) -> list[str]:
+    ids: list[str] = []
+    if not isinstance(value, list):
+        return ids
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        artist_id = str((item.get("artist") or {}).get("id") or "").strip()
+        if artist_id and artist_id not in ids:
+            ids.append(artist_id)
+    return ids
 
 
 class AlbumProvider:
@@ -79,7 +73,6 @@ class MusicBrainzProvider(AlbumProvider):
             candidate = self._candidate_from_release(detail or release)
             if candidate:
                 candidates.append(candidate)
-            time.sleep(0.15)
         return candidates
 
     def _detail(self, release_id: str) -> dict[str, Any] | None:
@@ -116,8 +109,11 @@ class MusicBrainzProvider(AlbumProvider):
                         artist=_first_artist(item.get("artist-credit")) or artist,
                         tracknumber=str(item.get("number") or item.get("position") or "") or None,
                         discnumber=disc,
-                        source_id=rec.get("id") or item.get("id"),
+                        source_id=item.get("id") or rec.get("id"),
                         duration_ms=item.get("length") or rec.get("length"),
+                        recording_id=rec.get("id"),
+                        track_id=item.get("id"),
+                        artist_ids=_artist_ids(item.get("artist-credit")),
                     )
                 )
         cover_archive = release.get("cover-art-archive") or {}
@@ -141,6 +137,8 @@ class MusicBrainzProvider(AlbumProvider):
             cover_url=cover_url,
             source_url=f"https://musicbrainz.org/release/{release_id}",
             tracks=tracks,
+            artist_ids=_artist_ids(release.get("artist-credit")),
+            release_group_id=release_group_id,
         )
 
 

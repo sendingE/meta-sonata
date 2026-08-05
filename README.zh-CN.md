@@ -48,6 +48,24 @@ pipx install meta-sonata
 uv tool install meta-sonata
 ```
 
+## macOS 图形版
+
+图形版包含两个入口：在“单曲补全”中拖入音乐文件、抓取元信息，再把输出副本拖到
+Finder；在“音乐库”中选择本地文件夹，直接在应用内只读查看封面、标签和歌词。
+音乐库服务仅监听本机随机端口，不需要另外安装或打开 Web 版。原文件始终保持不变。
+
+应用默认跟随 macOS 系统语言，也可以在语言菜单中手动切换。当前支持英语、简体中文、
+繁体中文、日语、韩语、法语、德语、西班牙语和巴西葡萄牙语。
+
+本地构建 Apple 芯片版 `.app` 和 `.dmg`：
+
+```bash
+./scripts/build_macos_release.sh
+```
+
+默认使用临时签名，适合本机验证。对外分发时通过 `MACOS_SIGN_IDENTITY` 指定
+Developer ID，并继续完成 Apple 公证。
+
 典型输出：
 
 ```text
@@ -105,6 +123,19 @@ meta-sonata web "/音乐" --host 127.0.0.1 --port 8765
 
 _截图使用 Nine Inch Nails《The Slip》的 CC 授权音频与封面，详见[素材署名](https://github.com/sendingE/meta-sonata/blob/main/docs/assets/ATTRIBUTION.md)。_
 
+## 本地数据存储
+
+音乐文件中的标签仍是可携带的主数据。图形版会在后台建立一个可重建的本机目录，
+用于跨文件夹检索、记录匹配结果和以后扩展人工确认；第三方接口响应则放在独立的
+可丢弃缓存中：
+
+- 长期目录：`~/Library/Application Support/com.sendinge.meta-sonata/catalog.sqlite3`
+- API 缓存：`~/Library/Caches/com.sendinge.meta-sonata/provider-cache.sqlite3`
+
+删除 API 缓存不会影响音乐或目录数据；目录损坏或不可写也不会阻塞文件浏览和补全。
+MusicBrainz 的真实网络请求在命令行、图形版和测试路径中统一限制为每秒最多一次。
+所有第三方接口失败都会降级为警告并继续处理本地文件或其他数据源。
+
 ## 安全设计
 
 - 没有 `--write` 时，所有写入命令都只做预演。
@@ -120,5 +151,5 @@ _截图使用 Nine Inch Nails《The Slip》的 CC 授权音频与封面，详见
 - [公开测试素材规范](https://github.com/sendingE/meta-sonata/blob/main/tests/README.md)
 - [MIT License](https://github.com/sendingE/meta-sonata/blob/main/LICENSE)
 
-支持 Python 3.9+。当前属于早期 `0.1.x` 版本，非官方数据接口可能发生变化
+支持 Python 3.9+。当前属于早期 `0.2.x` 版本，非官方数据接口可能发生变化
 或受到限流。

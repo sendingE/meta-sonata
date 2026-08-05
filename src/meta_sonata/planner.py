@@ -38,7 +38,11 @@ def _existing_track_tags(path: Path) -> dict[str, str]:
         "catalognumber",
         "barcode",
         "musicbrainz_albumid",
+        "musicbrainz_releasegroupid",
+        "musicbrainz_recordingid",
         "musicbrainz_trackid",
+        "musicbrainz_artistid",
+        "musicbrainz_albumartistid",
         "musicinfo_source",
     ):
         values = audio.get(key)
@@ -129,6 +133,8 @@ def merge_metadata(local: AlbumMetadata, scraped: ScrapeCandidate | None) -> Alb
         source_url=scraped.source_url,
         confidence=max(local.confidence, scraped.score),
         warnings=local.warnings + scraped.warnings,
+        artist_ids=scraped.artist_ids,
+        release_group_id=scraped.release_group_id,
     )
 
 
@@ -193,6 +199,15 @@ def build_album_plan(
         if metadata.source_id:
             if accepted_scrape and accepted_scrape.provider == "musicbrainz":
                 tags["musicbrainz_albumid"] = existing.get("musicbrainz_albumid") or metadata.source_id
+                if metadata.release_group_id:
+                    tags["musicbrainz_releasegroupid"] = (
+                        existing.get("musicbrainz_releasegroupid") or metadata.release_group_id
+                    )
+                if metadata.artist_ids:
+                    rendered_artist_ids = "; ".join(metadata.artist_ids)
+                    tags["musicbrainz_albumartistid"] = (
+                        existing.get("musicbrainz_albumartistid") or rendered_artist_ids
+                    )
             tags["musicinfo_source"] = existing.get("musicinfo_source") or (
                 f"{accepted_scrape.provider}:{metadata.source_id}" if accepted_scrape else metadata.source_id
             )
@@ -221,9 +236,23 @@ def build_album_plan(
             tags["artist"] = per_track_artist
         elif "artist" not in tags and scraped_track and scraped_track.artist:
             tags["artist"] = scraped_track.artist
-        if scraped_track and scraped_track.source_id:
-            if accepted_scrape and accepted_scrape.provider == "musicbrainz":
-                tags["musicbrainz_trackid"] = existing.get("musicbrainz_trackid") or scraped_track.source_id
+        if scraped_track and accepted_scrape and accepted_scrape.provider == "musicbrainz":
+            track_id = scraped_track.track_id or (
+                scraped_track.source_id if not scraped_track.recording_id else None
+            )
+            if track_id:
+                tags["musicbrainz_trackid"] = (
+                    existing.get("musicbrainz_trackid") or track_id
+                )
+            if scraped_track.recording_id:
+                tags["musicbrainz_recordingid"] = (
+                    existing.get("musicbrainz_recordingid") or scraped_track.recording_id
+                )
+            track_artist_ids = scraped_track.artist_ids or metadata.artist_ids
+            if track_artist_ids:
+                tags["musicbrainz_artistid"] = (
+                    existing.get("musicbrainz_artistid") or "; ".join(track_artist_ids)
+                )
 
         if not tags:
             track_warnings.append("no_tags_planned")
@@ -258,6 +287,11 @@ def build_loose_plan(scan: AlbumScan) -> AlbumPlan:
                 "tracknumber",
                 "discnumber",
                 "genre",
+                "musicbrainz_artistid",
+                "musicbrainz_albumartistid",
+                "musicbrainz_recordingid",
+                "musicbrainz_albumid",
+                "musicbrainz_releasegroupid",
                 "musicbrainz_trackid",
                 "musicinfo_source",
             }

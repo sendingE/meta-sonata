@@ -56,6 +56,8 @@ class AlbumMetadata:
     confidence: float = 0.0
     source: str = "folder"
     warnings: list[str] = field(default_factory=list)
+    artist_ids: list[str] = field(default_factory=list)
+    release_group_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -76,6 +78,8 @@ class AlbumMetadata:
             "confidence": round(self.confidence, 3),
             "source": self.source,
             "warnings": self.warnings,
+            "artist_ids": self.artist_ids,
+            "release_group_id": self.release_group_id,
         }
 
 
@@ -153,6 +157,9 @@ class ScrapedTrack:
     discnumber: str | None = None
     source_id: str | None = None
     duration_ms: int | None = None
+    recording_id: str | None = None
+    track_id: str | None = None
+    artist_ids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -162,6 +169,9 @@ class ScrapedTrack:
             "discnumber": self.discnumber,
             "source_id": self.source_id,
             "duration_ms": self.duration_ms,
+            "recording_id": self.recording_id,
+            "track_id": self.track_id,
+            "artist_ids": self.artist_ids,
         }
 
 
@@ -182,6 +192,8 @@ class ScrapeCandidate:
     tracks: list[ScrapedTrack] = field(default_factory=list)
     score: float = 0.0
     warnings: list[str] = field(default_factory=list)
+    artist_ids: list[str] = field(default_factory=list)
+    release_group_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -201,6 +213,8 @@ class ScrapeCandidate:
             "tracks": [track.to_dict() for track in self.tracks],
             "score": round(self.score, 3),
             "warnings": self.warnings,
+            "artist_ids": self.artist_ids,
+            "release_group_id": self.release_group_id,
         }
 
 

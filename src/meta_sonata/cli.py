@@ -8,6 +8,8 @@ from dataclasses import replace
 from pathlib import Path
 
 from . import __version__
+from .app_paths import default_api_cache_path, default_catalog_path
+from .catalog import try_default_catalog
 from .cover import download_cover
 from .grouping import group_scans
 from .lyrics import (
@@ -94,6 +96,8 @@ def _filtered_scans(args: argparse.Namespace) -> list:
 def cmd_doctor(_: argparse.Namespace) -> int:
     print(f"meta-sonata {__version__}")
     print(f"state dir: {default_state_dir()} (override with {STATE_DIR_ENV})")
+    print(f"catalog: {default_catalog_path()}")
+    print(f"provider cache: {default_api_cache_path()}")
     print("protected library roots:")
     roots = protected_library_paths()
     if not roots:
@@ -311,6 +315,8 @@ def cmd_tag(args: argparse.Namespace) -> int:
 
     changed = skipped = 0
     state_runs: dict[Path, dict] = {}
+    catalog = try_default_catalog()
+    catalog_root = Path(args.path).expanduser().resolve()
     try:
         with tempfile.TemporaryDirectory(prefix="meta-sonata-cover-") as tmp:
             cover_tmp = Path(tmp)
@@ -342,6 +348,11 @@ def cmd_tag(args: argparse.Namespace) -> int:
                     skipped += int(result.skipped)
                     if result.skipped:
                         print(f"skip {result.path}: {'; '.join(result.warnings)}")
+                    elif catalog:
+                        try:
+                            catalog.index_audio_file(catalog_root, result.path)
+                        except Exception:
+                            pass
                 state_run["changed"] += sum(1 for result in results if result.changed)
                 state_run["track_count"] += len(results)
                 state_run["skipped"] = state_run["skipped"] or any(result.skipped for result in results)

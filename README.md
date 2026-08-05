@@ -48,6 +48,28 @@ Or install it with `uv`:
 uv tool install meta-sonata
 ```
 
+## macOS App
+
+The macOS app has two modes. **Single Track** accepts a dropped audio file,
+completes its metadata, and lets you drag the output copy into Finder. **Library**
+opens a local folder in the app's read-only metadata browser. Its helper service
+binds only to a random local port, with no separate web installation required.
+The original files are never modified.
+
+The app follows the macOS language by default and can be changed from its
+language menu. It supports English, Simplified Chinese, Traditional Chinese,
+Japanese, Korean, French, German, Spanish, and Brazilian Portuguese.
+
+Build the Apple silicon `.app` and `.dmg` locally with:
+
+```bash
+./scripts/build_macos_release.sh
+```
+
+The default build is ad-hoc signed for local validation. Set
+`MACOS_SIGN_IDENTITY` to a Developer ID identity and notarize it before public
+distribution.
+
 Typical output:
 
 ```text
@@ -105,6 +127,22 @@ technical details, covers, and embedded lyrics. The web UI has no write endpoint
 
 _Shown with CC-licensed audio and artwork from Nine Inch Nails' The Slip. See the [asset attribution](https://github.com/sendingE/meta-sonata/blob/main/docs/assets/ATTRIBUTION.md)._
 
+## Local data storage
+
+Embedded file tags remain the portable source of truth. The macOS app builds a
+rebuildable local catalog in the background for cross-folder lookup, match
+history, and future confirmation workflows. Third-party responses live in a
+separate disposable cache:
+
+- Durable catalog: `~/Library/Application Support/com.sendinge.meta-sonata/catalog.sqlite3`
+- API cache: `~/Library/Caches/com.sendinge.meta-sonata/provider-cache.sqlite3`
+
+Deleting the API cache does not affect music or catalog data. Catalog failures
+also never block browsing or enrichment. Real MusicBrainz network requests are
+limited to one per second across CLI, macOS, and test code paths. Every
+third-party failure degrades to a warning while local processing and other
+providers continue.
+
 ## Safety
 
 - Every write command is a dry run unless `--write` is present.
@@ -120,5 +158,5 @@ _Shown with CC-licensed audio and artwork from Nine Inch Nails' The Slip. See th
 - [Public test-fixture policy](https://github.com/sendingE/meta-sonata/blob/main/tests/README.md)
 - [MIT License](https://github.com/sendingE/meta-sonata/blob/main/LICENSE)
 
-Python 3.9+ is supported. The project is currently an early `0.1.x` release;
+Python 3.9+ is supported. The project is currently an early `0.2.x` release;
 unofficial provider endpoints may change or be rate-limited.

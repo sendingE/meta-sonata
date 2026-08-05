@@ -2,6 +2,21 @@
 
 All notable changes to meta-sonata are documented here.
 
+## 0.2.0 - 2026-08-05
+
+- Add a native copy-only macOS app for single-track enrichment and read-only
+  library browsing in nine languages.
+- Add a durable per-user SQLite catalog while keeping embedded file tags as the
+  portable source of truth.
+- Add a separate disposable SQLite cache for third-party responses, stale-cache
+  fallback, and process-wide MusicBrainz rate limiting at one request per second.
+- Isolate metadata, lyrics, and cover provider failures so local processing and
+  remaining providers continue.
+- Preserve distinct MusicBrainz artist, recording, release, release-group, and
+  release-track identities across matching, writing, and browsing.
+- Add MP3 and M4A tag writing, reversible field edits, localized UI resources,
+  and expanded regression coverage.
+
 ## 0.1.2 - 2026-07-21
 
 - Fix images and documentation links in the PyPI project description.
