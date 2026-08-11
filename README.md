@@ -34,8 +34,7 @@ _[Demo media attribution](https://github.com/sendingE/meta-sonata/blob/main/docs
 The app supports English, Simplified Chinese, Traditional Chinese, Japanese,
 Korean, French, German, Spanish, and Brazilian Portuguese.
 
-The current DMG is ad-hoc signed and not Apple-notarized, so macOS may require
-Control-click → **Open** on first launch.
+The macOS download is signed with Developer ID and notarized by Apple.
 
 ## CLI Quick Start
 

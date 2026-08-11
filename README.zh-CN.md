@@ -33,8 +33,7 @@ _[演示素材署名](https://github.com/sendingE/meta-sonata/blob/main/docs/ass
 当前支持英语、简体中文、繁体中文、日语、韩语、法语、德语、西班牙语和巴西
 葡萄牙语。
 
-当前 DMG 使用 ad-hoc 签名，尚未经过 Apple 公证；首次启动时可能需要按住 Control
-点击应用并选择“打开”。
+macOS 安装包已使用 Developer ID 签名，并通过 Apple 公证。
 
 ## CLI 快速开始
 

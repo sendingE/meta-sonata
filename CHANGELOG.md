@@ -2,6 +2,11 @@
 
 All notable changes to meta-sonata are documented here.
 
+## 0.2.1 - 2026-08-11
+
+- Sign the macOS app and disk image with a pinned Developer ID certificate.
+- Notarize and staple both the app and disk image for trusted direct distribution.
+
 ## 0.2.0 - 2026-08-05
 
 - Add a native copy-only macOS app for single-track enrichment and read-only
